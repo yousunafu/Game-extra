@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ダッシュボード</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js for data visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-100 font-sans text-gray-800">
+
+    <!-- Header -->
+    <header class="bg-white shadow-md">
+        <div class="container mx-auto px-6 py-4">
+            <h1 class="text-2xl font-bold text-gray-700">ダッシュボード</h1>
+            <p class="text-sm text-gray-500 mt-1">買取・販売データを可視化し、経営状況を分析します。</p>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="container mx-auto px-6 py-8">
+
+        <!-- Filters -->
+        <div class="bg-white p-4 rounded-lg shadow-md mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 items-end">
+                <div>
+                    <label for="date-range" class="text-sm font-medium text-gray-700">期間:</label>
+                    <select id="date-range" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
+                        <option>過去30日間</option>
+                        <option selected>過去6ヶ月間</option>
+                        <option>今年</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="product-filter" class="text-sm font-medium text-gray-700">商品:</label>
+                    <select id="product-filter" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
+                        <option value="all">すべての商品</option>
+                        <option>PSP-3000 ピアノ・ブラック</option>
+                        <option>PSP-3000 パール・ホワイト</option>
+                    </select>
+                </div>
+                <div class="md:col-span-2 xl:col-span-1">
+                    <label class="text-sm font-medium text-gray-700">顧客 (複数選択可):</label>
+                    <div id="customer-filter-group" class="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+                        <label class="inline-flex items-center">
+                            <input type="checkbox" class="customer-checkbox rounded" value="John Smith (USA)" data-color="blue" checked>
+                            <span class="ml-2 text-sm">John Smith (USA)</span>
+                        </label>
+                        <label class="inline-flex items-center">
+                            <input type="checkbox" class="customer-checkbox rounded" value="Game Export Inc. (UK)" data-color="pink" checked>
+                            <span class="ml-2 text-sm">Game Export Inc. (UK)</span>
+                        </label>
+                    </div>
+                </div>
+                 <div>
+                    <button id="update-charts-btn" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">表示を更新</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
+            <!-- Sales Amount Trend Line Chart -->
+            <div class="bg-white p-6 rounded-lg shadow-md lg:col-span-2">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h3 class="text-lg font-bold">顧客・ランク別 販売金額の推移</h3>
+                        <p class="text-sm text-gray-500 mb-2">顧客とランクごとの販売金額の推移です。</p>
+                    </div>
+                     <div>
+                        <label class="text-sm font-medium text-gray-700">ランク表示:</label>
+                        <div id="rank-filter-group" class="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                            <label class="inline-flex items-center">
+                                <input type="checkbox" class="rank-checkbox rounded" value="S" checked>
+                                <span class="ml-1 text-sm">S</span>
+                            </label>
+                             <label class="inline-flex items-center">
+                                <input type="checkbox" class="rank-checkbox rounded" value="A" checked>
+                                <span class="ml-1 text-sm">A</span>
+                            </label>
+                             <label class="inline-flex items-center">
+                                <input type="checkbox" class="rank-checkbox rounded" value="B" checked>
+                                <span class="ml-1 text-sm">B</span>
+                            </label>
+                             <label class="inline-flex items-center">
+                                <input type="checkbox" class="rank-checkbox rounded" value="C" checked>
+                                <span class="ml-1 text-sm">C</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <canvas id="salesAmountTrendChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Sales Volume Bar Chart -->
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h3 class="text-lg font-bold mb-4">顧客別・SKU別 販売数量</h3>
+                 <p class="text-sm text-gray-500 mb-2">選択した顧客がどの商品をどれだけ購入したか比較します。</p>
+                <div>
+                    <canvas id="salesVolumeChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Sales by Customer Pie Chart -->
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h3 class="text-lg font-bold mb-4">顧客別 売上比率</h3>
+                 <p class="text-sm text-gray-500 mb-2">選択した期間内の総売上における顧客の割合です。</p>
+                <div class="max-h-80 mx-auto flex justify-center">
+                    <canvas id="customerSalesChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Dummy Data (Rank added & expanded) ---
+            const dummyTransactions = [
+                // John Smith
+                { month: '5月', customer: 'John Smith (USA)', sku: 'PSP3000-PB-S', rank: 'S', quantity: 10, price: 8600 },
+                { month: '6月', customer: 'John Smith (USA)', sku: 'PSP3000-PB-A', rank: 'A', quantity: 15, price: 7100 },
+                { month: '7月', customer: 'John Smith (USA)', sku: 'PSP3000-PB-S', rank: 'S', quantity: 12, price: 8550 },
+                { month: '8月', customer: 'John Smith (USA)', sku: 'PSP3000-PB-A', rank: 'A', quantity: 18, price: 7000 },
+                { month: '8月', customer: 'John Smith (USA)', sku: 'PSP3000-PB-B', rank: 'B', quantity: 5, price: 5500 },
+                { month: '9月', customer: 'John Smith (USA)', sku: 'PSP3000-PW-A', rank: 'A', quantity: 10, price: 7200 },
+                { month: '10月', customer: 'John Smith (USA)', sku: 'PSP3000-PB-S', rank: 'S', quantity: 15, price: 8500 },
+                { month: '10月', customer: 'John Smith (USA)', sku: 'PSP3000-PB-C', rank: 'C', quantity: 8, price: 3500 },
+
+                // Game Export Inc. (UK)
+                { month: '5月', customer: 'Game Export Inc. (UK)', sku: 'PSP3000-PB-S', rank: 'S', quantity: 20, price: 8300 },
+                { month: '6月', customer: 'Game Export Inc. (UK)', sku: 'PSP3000-PB-A', rank: 'A', quantity: 30, price: 6800 },
+                { month: '6月', customer: 'Game Export Inc. (UK)', sku: 'PSP3000-PB-B', rank: 'B', quantity: 15, price: 5200 },
+                { month: '7月', customer: 'Game Export Inc. (UK)', sku: 'PSP3000-PB-S', rank: 'S', quantity: 25, price: 8200 },
+                { month: '8月', customer: 'Game Export Inc. (UK)', sku: 'PSP3000-PB-A', rank: 'A', quantity: 35, price: 6750 },
+                { month: '9月', customer: 'Game Export Inc. (UK)', sku: 'PSP3000-PW-A', rank: 'A', quantity: 22, price: 6900 },
+                { month: '10月', customer: 'Game Export Inc. (UK)', sku: 'PSP3000-PB-S', rank: 'S', quantity: 30, price: 8250 },
+                { month: '10月', customer: 'Game Export Inc. (UK)', sku: 'PSP3000-PB-C', rank: 'C', quantity: 25, price: 3300 },
+
+                // Collector's Hub (FR)
+                { month: '7月', customer: 'Collector\'s Hub (FR)', sku: 'PSP3000-PB-S', rank: 'S', quantity: 5, price: 8800 },
+                { month: '10月', customer: 'Collector\'s Hub (FR)', sku: 'PSP3000-PB-A', rank: 'A', quantity: 8, price: 7300 },
+            ];
+            
+            const months = ['5月', '6月', '7月', '8月', '9月', '10月'];
+            const skus = ['PSP3000-PB-S', 'PSP3000-PB-A', 'PSP3000-PW-A'];
+            const customerColors = {
+                'John Smith (USA)': '54, 162, 235', // RGB values for rgba
+                'Game Export Inc. (UK)': '255, 99, 132',
+                'Collector\'s Hub (FR)': '75, 192, 192',
+            };
+
+            let salesAmountChart, volumeChart, customerPieChart;
+
+            // Helper to get different line styles for ranks
+            function getDashPatternForRank(rank) {
+                switch(rank) {
+                    case 'S': return []; // Solid
+                    case 'A': return [10, 5]; // Dashed
+                    case 'B': return [5, 5]; // Dotted
+                    case 'C': return [2, 4]; // More dotted
+                    default: return [];
+                }
+            }
+             // Helper to get different opacities for ranks
+            function getOpacityForRank(rank) {
+                switch(rank) {
+                    case 'S': return 1.0;
+                    case 'A': return 0.9;
+                    case 'B': return 0.8;
+                    case 'C': return 0.7;
+                    default: return 1.0;
+                }
+            }
+
+            function createOrUpdateCharts() {
+                const selectedCustomers = Array.from(document.querySelectorAll('.customer-checkbox:checked')).map(cb => cb.value);
+                const selectedRanks = Array.from(document.querySelectorAll('.rank-checkbox:checked')).map(cb => cb.value);
+
+                // --- Sales Amount Trend Chart ---
+                const salesAmountDatasets = [];
+                selectedCustomers.forEach(customer => {
+                    const color = customerColors[customer];
+
+                    // Create a separate line for each selected rank
+                    selectedRanks.forEach(rank => {
+                         const opacity = getOpacityForRank(rank);
+                         salesAmountDatasets.push({
+                            label: `${customer} - ${rank}ランク`,
+                            data: months.map(month => {
+                                const transactions = dummyTransactions.filter(t => t.month === month && t.customer === customer && t.rank === rank);
+                                if (transactions.length === 0) return null;
+                                return transactions.reduce((acc, t) => acc + (t.price * t.quantity), 0);
+                            }),
+                            borderColor: `rgba(${color}, ${opacity})`,
+                            backgroundColor: `rgba(${color}, ${opacity * 0.5})`,
+                            tension: 0.2,
+                            spanGaps: true,
+                            borderDash: getDashPatternForRank(rank),
+                            borderWidth: 2.5,
+                        });
+                    });
+                });
+                
+                if (salesAmountChart) salesAmountChart.destroy();
+                salesAmountChart = new Chart(document.getElementById('salesAmountTrendChart').getContext('2d'), {
+                    type: 'line',
+                    data: { labels: months, datasets: salesAmountDatasets },
+                    options: { 
+                        responsive: true, 
+                        plugins: { 
+                            legend: { position: 'top' }, 
+                            tooltip: { mode: 'index', intersect: false } 
+                        }, 
+                        scales: { 
+                            y: { 
+                                beginAtZero: false, 
+                                ticks: { 
+                                    callback: value => `¥${value/10000}万` 
+                                } 
+                            } 
+                        } 
+                    }
+                });
+
+
+                // --- Sales Volume Chart ---
+                 const volumeDatasets = selectedCustomers.map(customer => {
+                    const data = skus.map(sku => {
+                        return dummyTransactions
+                            .filter(t => t.sku === sku && t.customer === customer)
+                            .reduce((acc, t) => acc + t.quantity, 0);
+                    });
+                    return {
+                        label: customer,
+                        data: data,
+                        backgroundColor: `rgba(${customerColors[customer]}, 0.5)`,
+                        borderColor: `rgb(${customerColors[customer]})`,
+                        borderWidth: 1
+                    };
+                });
+                
+                if (volumeChart) volumeChart.destroy();
+                volumeChart = new Chart(document.getElementById('salesVolumeChart').getContext('2d'), {
+                    type: 'bar',
+                    data: { labels: skus, datasets: volumeDatasets },
+                    options: { responsive: true, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true, title: { display: true, text: '販売数量（点）' } } } }
+                });
+
+                // --- Customer Sales Pie Chart ---
+                const pieData = { labels: [], data: [], colors: [] };
+                 selectedCustomers.forEach(customer => {
+                    const totalSales = dummyTransactions
+                        .filter(t => t.customer === customer)
+                        .reduce((acc, t) => acc + (t.price * t.quantity), 0);
+                    if (totalSales > 0) {
+                        pieData.labels.push(customer);
+                        pieData.data.push(totalSales);
+                        pieData.colors.push(`rgba(${customerColors[customer]}, 0.8)`);
+                    }
+                });
+
+                if (customerPieChart) customerPieChart.destroy();
+                customerPieChart = new Chart(document.getElementById('customerSalesChart').getContext('2d'), {
+                    type: 'pie',
+                    data: {
+                        labels: pieData.labels,
+                        datasets: [{ label: '売上', data: pieData.data, backgroundColor: pieData.colors, hoverOffset: 4 }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { tooltip: { callbacks: { label: (context) => `売上: ¥${new Intl.NumberFormat('ja-JP').format(context.raw)}` } } } }
+                });
+            }
+
+            document.getElementById('update-charts-btn').addEventListener('click', createOrUpdateCharts);
+            document.querySelectorAll('.rank-checkbox').forEach(cb => cb.addEventListener('change', createOrUpdateCharts));
+
+
+            // Initial render
+            createOrUpdateCharts();
+        });
+    </script>
+</body>
+</html>
+

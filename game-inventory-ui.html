@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>在庫管理サマリー - 中古ゲーム機買取システム</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #7f8c8d;
+            margin-bottom: 30px;
+        }
+        
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        
+        .summary-card {
+            background-color: #f8f9fa;
+            padding: 25px;
+            border-radius: 8px;
+            text-align: center;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .summary-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .card-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+        
+        .card-value {
+            font-size: 36px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        
+        .card-label {
+            color: #7f8c8d;
+            font-size: 16px;
+        }
+        
+        .inventory-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+        
+        .inventory-table th, .inventory-table td {
+            padding: 12px;
+            text-align: left;
+            border: 1px solid #ddd;
+        }
+        
+        .inventory-table th {
+            background-color: #34495e;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .inventory-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        
+        .inventory-table tr:hover {
+            background-color: #e8f4f8;
+            cursor: pointer;
+        }
+        
+        .product-name {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .rank-breakdown {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+        
+        .rank-item {
+            text-align: center;
+            padding: 8px;
+            border-radius: 5px;
+            background-color: #ecf0f1;
+        }
+        
+        .rank-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-weight: bold;
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+        
+        .rank-s { background-color: #f39c12; color: white; }
+        .rank-a { background-color: #3498db; color: white; }
+        .rank-b { background-color: #27ae60; color: white; }
+        .rank-c { background-color: #95a5a6; color: white; }
+        
+        .price-range {
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: flex-end;
+            margin-bottom: 30px;
+        }
+        
+        button {
+            background-color: #3498db;
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
+        }
+        
+        button.secondary {
+            background-color: #95a5a6;
+        }
+        
+        button.secondary:hover {
+            background-color: #7f8c8d;
+        }
+        
+        .filter-section {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 30px;
+        }
+        
+        .filter-controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        
+        select, input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        .total-row {
+            font-weight: bold;
+            background-color: #ecf0f1;
+        }
+        
+        .total-row td {
+            padding: 15px 12px;
+        }
+        
+        @media (max-width: 768px) {
+            .summary-cards {
+                grid-template-columns: 1fr;
+            }
+            
+            .rank-breakdown {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>在庫管理サマリー</h1>
+        <p class="subtitle">在庫全体の概要を確認できます</p>
+        
+        <div class="summary-cards">
+            <div class="summary-card">
+                <div class="card-icon">📦</div>
+                <div class="card-value">245</div>
+                <div class="card-label">総在庫数</div>
+            </div>
+            <div class="summary-card">
+                <div class="card-icon">💰</div>
+                <div class="card-value">¥8,750,000</div>
+                <div class="card-label">在庫評価額</div>
+            </div>
+            <div class="summary-card">
+                <div class="card-icon">📈</div>
+                <div class="card-value">¥35,714</div>
+                <div class="card-label">平均単価</div>
+            </div>
+            <div class="summary-card">
+                <div class="card-icon">🎮</div>
+                <div class="card-value">12</div>
+                <div class="card-label">商品種別数</div>
+            </div>
+        </div>
+        
+        <div class="action-buttons">
+            <button onclick="exportData()">データエクスポート</button>
+            <button class="secondary" onclick="refreshData()">データ更新</button>
+        </div>
+        
+        <div class="filter-section">
+            <h3 style="margin-bottom: 15px;">フィルター</h3>
+            <div class="filter-controls">
+                <div class="form-group">
+                    <label for="searchProduct">商品検索</label>
+                    <input type="text" id="searchProduct" placeholder="商品名を入力">
+                </div>
+                <div class="form-group">
+                    <label for="categoryFilter">カテゴリ</label>
+                    <select id="categoryFilter">
+                        <option value="">全て</option>
+                        <option value="home">据置機</option>
+                        <option value="portable">携帯機</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="stockFilter">在庫状況</label>
+                    <select id="stockFilter">
+                        <option value="">全て</option>
+                        <option value="available">在庫あり</option>
+                        <option value="low">在庫少</option>
+                        <option value="out">在庫なし</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <h2 style="margin-bottom: 20px;">商品別在庫一覧</h2>
+        <table class="inventory-table">
+            <thead>
+                <tr>
+                    <th>商品名</th>
+                    <th>総在庫数</th>
+                    <th>ランク別在庫</th>
+                    <th>買取価格帯</th>
+                    <th>在庫評価額</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr onclick="viewDetails('ps5')">
+                    <td class="product-name">PlayStation 5</td>
+                    <td>45</td>
+                    <td>
+                        <div class="rank-breakdown">
+                            <div class="rank-item">
+                                <div class="rank-badge rank-s">S</div>
+                                <div>12</div>
+                            </div>
+                            <div class="rank-item">
+                                <div class="rank-badge rank-a">A</div>
+                                <div>18</div>
+                            </div>
+                            <div class="rank-item">
+                                <div class="rank-badge rank-b">B</div>
+                                <div>10</div>
+                            </div>
+                            <div class="rank-item">
+                                <div class="rank-badge rank-c">C</div>
+                                <div>5</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="price-range">¥30,000 - ¥45,000</td>
+                    <td>¥1,800,000</td>
+                </tr>
+                <tr onclick="viewDetails('switch')">
+                    <td class="product-name">Nintendo Switch</td>
+                    <td>68</td>
+                    <td>
+                        <div class="rank-breakdown">
+                            <div class="rank-item">
+                                <div class="rank-badge rank-s">S</div>
+                                <div>20</div>
+                            </div>
+                            <div class="rank-item">
+                                <div class="rank-badge rank-a">A</div>
+                                <div>25</div>
+                            </div>
+                            <div class="rank-item">
+                                <div class="rank-badge rank-b">B</div>
+                                <div>15</div>
+                            </div>
+                            <div class="rank-item">
+                                <div class="rank-badge rank-c">C</div>
+                                <div>8</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="price-range">¥15,000 - ¥25,000</td>
+                    <td>¥1,360,000</td>
+                </tr>
+                <tr onclick="viewDetails('ps4pro')">
+                    <td class="product-name">PlayStation 4 Pro</td>
+                    <td>32</td>
+                    <td>
+                        <div class="rank-breakdown">
+                            <div class="rank-item">
+                                <div class="rank-badge rank-s">S</div>
+                                <div>5</div>
+                            </div>
+                            <div class="rank-item">
+                                <div class="rank-badge rank-a">A</div>
+                                <div>10</div>
+                            </div>
+                            <div class="rank-item">
+                                <div class="rank-badge rank-b">B</div>
+                                <div>12</div>
+                            </div>
+                            <div class="rank-item">
+                                <div class="rank-badge rank-c">C</div>
+                                <div>5</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="price-range">¥12,000 - ¥20,000</td>
+                    <td>¥480,000</td>
+                </tr>
+                <tr onclick="viewDetails('switch-oled')">
+                    <td class="product-name">Nintendo Switch（有機ELモデル）</td>
+                    <td>28</td>
+                    <td>
+                        <div class="rank-breakdown">
+                            <div class="rank-item">
+                                <div class="rank-badge rank-s">S</div>
+                                <div>10</div>
+                            </div>
+                            <div class="rank-item">
+                                <div class="rank-badge rank-a">A</div>
+                                <div>12</div>
+                            </div>
+                            <div class="rank-item">
+                                <div class="rank-badge rank-b">B</div>
+                                <div>4</div>
+                            </div>
+                            <div class="rank-item">
+                                <div class="rank-badge rank-c">C</div>
+                                <div>2</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="price-range">¥22,000 - ¥32,000</td>
+                    <td>¥784,000</td>
+                </tr>
+                <tr onclick="viewDetails('xbox-series-x')">
+                    <td class="product-name">Xbox Series X</td>
+                    <td>22</td>
+                    <td>
+                        <div class="rank-breakdown">
+                            <div class="rank-item">
+                                <div class="rank-badge rank-s">S</div>
+                                <div>6</div>
+                            </div>
+                            <div class="rank-item">
+                                <div class="rank-badge rank-a">A</div>
+                                <div>8</div>
+                            </div>
+                            <div class="rank-item">
+                                <div class="rank-badge rank-b">B</div>
+                                <div>5</div>
+                            </div>
+                            <div class="rank-item">
+                                <div class="rank-badge rank-c">C</div>
+                                <div>3</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="price-range">¥35,000 - ¥45,000</td>
+                    <td>¥880,000</td>
+                </tr>
+                <tr onclick="viewDetails('switch-lite')">
+                    <td class="product-name">Nintendo Switch Lite</td>
+                    <td>50</td>
+                    <td>
+                        <div class="rank-breakdown">
+                            <div class="rank-item">
+                                <div class="rank-badge rank-s">S</div>
+                                <div>15</div>
+                            </div>
+                            <div class="rank-item">
+                                <div class="rank-badge rank-a">A</div>
+                                <div>20</div>
+                            </div>
+                            <div class="rank-item">
+                                <div class="rank-badge rank-b">B</div>
+                                <div>10</div>
+                            </div>
+                            <div class="rank-item">
+                                <div class="rank-badge rank-c">C</div>
+                                <div>5</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="price-range">¥10,000 - ¥15,000</td>
+                    <td>¥625,000</td>
+                </tr>
+            </tbody>
+            <tfoot>
+                <tr class="total-row">
+                    <td>合計</td>
+                    <td>245</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>¥8,750,000</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    
+    <script>
+        // 商品詳細画面へ遷移
+        function viewDetails(productId) {
+            console.log('商品詳細を表示:', productId);
+            alert('個別管理台帳画面へ遷移します\n商品ID: ' + productId);
+            // 実際の実装では、個別管理台帳画面へ遷移
+        }
+        
+        // データエクスポート
+        function exportData() {
+            const format = prompt('エクスポート形式を選択してください:\n1. CSV\n2. Excel\n3. PDF', '1');
+            if (format) {
+                const formatName = format === '1' ? 'CSV' : format === '2' ? 'Excel' : 'PDF';
+                alert('在庫データを' + formatName + '形式でエクスポートしました');
+            }
+        }
+        
+        // データ更新
+        function refreshData() {
+            alert('在庫データを更新しました');
+            // 実際の実装では、APIから最新データを取得して画面を更新
+        }
+        
+        // 検索・フィルター機能
+        document.getElementById('searchProduct').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const rows = document.querySelectorAll('.inventory-table tbody tr:not(.total-row)');
+            
+            rows.forEach(row => {
+                const productName = row.querySelector('.product-name').textContent.toLowerCase();
+                row.style.display = productName.includes(searchTerm) ? '' : 'none';
+            });
+        });
+        
+        // カテゴリフィルター
+        document.getElementById('categoryFilter').addEventListener('change', function(e) {
+            console.log('カテゴリフィルター:', e.target.value);
+            // 実装では、選択されたカテゴリに基づいてフィルタリング
+        });
+        
+        // 在庫状況フィルター
+        document.getElementById('stockFilter').addEventListener('change', function(e) {
+            console.log('在庫状況フィルター:', e.target.value);
+            // 実装では、在庫状況に基づいてフィルタリング
+        });
+        
+        // ツールチップ表示（ランクにマウスオーバー時）
+        document.querySelectorAll('.rank-badge').forEach(badge => {
+            badge.title = badge.classList.contains('rank-s') ? 'Sランク: 新品同様' :
+                         badge.classList.contains('rank-a') ? 'Aランク: 美品' :
+                         badge.classList.contains('rank-b') ? 'Bランク: 良品' :
+                         'Cランク: 通常品';
+        });
+    </script>
+</body>
+</html>

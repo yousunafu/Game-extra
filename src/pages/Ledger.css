@@ -1,0 +1,454 @@
+.ledger-container {
+  max-width: 1600px;
+  margin: 0 auto;
+  background-color: white;
+  padding: 40px;
+  border-radius: 10px;
+  box-shadow: 0 0 20px rgba(0,0,0,0.1);
+}
+
+.ledger-container h1 {
+  color: #2c3e50;
+  margin-bottom: 10px;
+}
+
+.ledger-container h3 {
+  color: #34495e;
+  margin-bottom: 20px;
+}
+
+.subtitle {
+  color: #7f8c8d;
+  margin-bottom: 30px;
+}
+
+.law-notice {
+  background-color: #d1ecf1;
+  padding: 15px;
+  border-radius: 5px;
+  margin-bottom: 30px;
+  border-left: 4px solid #3498db;
+}
+
+.law-notice h3 {
+  color: #0c5460;
+  margin-bottom: 10px;
+}
+
+.law-notice p {
+  color: #0c5460;
+  font-size: 14px;
+}
+
+.search-section {
+  background-color: #f8f9fa;
+  padding: 25px;
+  border-radius: 8px;
+  margin-bottom: 30px;
+}
+
+.search-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+  color: #555;
+  font-size: 14px;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 14px;
+  transition: border-color 0.3s;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #3498db;
+}
+
+.search-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.search-actions button {
+  padding: 10px 25px;
+  border: none;
+  border-radius: 5px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.search-actions button:first-child {
+  background-color: #3498db;
+  color: white;
+}
+
+.search-actions button:first-child:hover {
+  background-color: #2980b9;
+}
+
+.search-actions button.secondary {
+  background-color: #95a5a6;
+  color: white;
+}
+
+.search-actions button.secondary:hover {
+  background-color: #7f8c8d;
+}
+
+.info-section {
+  background-color: #ecf0f1;
+  padding: 15px;
+  border-radius: 5px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.info-item {
+  text-align: center;
+}
+
+.info-label {
+  font-size: 14px;
+  color: #7f8c8d;
+  margin-bottom: 5px;
+}
+
+.info-value {
+  font-size: 24px;
+  font-weight: bold;
+  color: #2c3e50;
+}
+
+.action-buttons {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 30px;
+}
+
+.left-actions,
+.right-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.action-buttons button {
+  padding: 12px 25px;
+  border: none;
+  border-radius: 5px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.add-button {
+  background-color: #27ae60;
+  color: white;
+}
+
+.add-button:hover {
+  background-color: #229954;
+}
+
+.action-buttons button:not(.add-button) {
+  background-color: #3498db;
+  color: white;
+}
+
+.action-buttons button:not(.add-button):hover {
+  background-color: #2980b9;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  margin-bottom: 30px;
+}
+
+.ledger-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.ledger-table th,
+.ledger-table td {
+  padding: 10px;
+  text-align: left;
+  border: 1px solid #ddd;
+  white-space: nowrap;
+}
+
+.ledger-table th {
+  background-color: #34495e;
+  color: white;
+  font-weight: bold;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.ledger-table tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+.ledger-table tr:hover {
+  background-color: #e8f4f8;
+  cursor: pointer;
+}
+
+.type-purchase {
+  color: #e74c3c;
+}
+
+.type-sale {
+  color: #27ae60;
+}
+
+.sku-code {
+  font-family: monospace;
+  background-color: #ecf0f1;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+.rank-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-weight: bold;
+  font-size: 12px;
+}
+
+.rank-s { background-color: #f39c12; color: white; }
+.rank-a { background-color: #3498db; color: white; }
+.rank-b { background-color: #27ae60; color: white; }
+.rank-c { background-color: #95a5a6; color: white; }
+
+.status-badge {
+  padding: 4px 10px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: bold;
+  text-align: center;
+  display: inline-block;
+}
+
+.status-in-stock { background-color: #27ae60; color: white; }
+.status-sold { background-color: #e74c3c; color: white; }
+.status-reserved { background-color: #f39c12; color: white; }
+
+.load-more {
+  text-align: center;
+  margin-top: 20px;
+}
+
+.load-more button {
+  background-color: #3498db;
+  color: white;
+  padding: 12px 30px;
+  border: none;
+  border-radius: 5px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.load-more button:hover {
+  background-color: #2980b9;
+}
+
+/* 販売記録セクション */
+.sales-records-section {
+  margin-bottom: 40px;
+}
+
+.sales-records-section h2 {
+  color: #2c3e50;
+  margin-bottom: 10px;
+}
+
+.section-subtitle {
+  color: #7f8c8d;
+  font-size: 14px;
+  margin-bottom: 25px;
+}
+
+.sales-record-card {
+  background: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+.sales-record-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 25px;
+  background-color: #f8f9fa;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.sales-record-header:hover {
+  background-color: #e9ecef;
+}
+
+.record-header-left h3 {
+  margin: 0 0 8px 0;
+  color: #2c3e50;
+  font-size: 18px;
+}
+
+.record-date,
+.record-request {
+  margin: 4px 0;
+  font-size: 13px;
+  color: #6c757d;
+}
+
+.record-header-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.record-summary {
+  display: flex;
+  gap: 20px;
+}
+
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 110px;
+}
+
+.summary-label {
+  font-size: 12px;
+  color: #6c757d;
+  margin-bottom: 4px;
+}
+
+.summary-value {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.summary-value.cost {
+  color: #e74c3c;
+}
+
+.summary-value.sales {
+  color: #3498db;
+}
+
+.summary-value.profit {
+  color: #27ae60;
+  font-size: 18px;
+}
+
+.expand-icon {
+  font-size: 20px;
+  color: #95a5a6;
+}
+
+.sales-record-details {
+  padding: 25px;
+  border-top: 2px solid #e0e0e0;
+  background-color: white;
+}
+
+.customer-info {
+  background: #f0f8ff;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.customer-info h4 {
+  margin: 0 0 12px 0;
+  color: #2c3e50;
+  font-size: 15px;
+}
+
+.customer-info p {
+  margin: 6px 0;
+  font-size: 14px;
+  color: #495057;
+}
+
+.items-detail h4 {
+  margin: 0 0 15px 0;
+  color: #2c3e50;
+  font-size: 15px;
+}
+
+.sales-detail-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.sales-detail-table th {
+  background-color: #e9ecef;
+  padding: 10px 8px;
+  text-align: left;
+  font-weight: 600;
+  color: #2c3e50;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.sales-detail-table td {
+  padding: 10px 8px;
+  border-bottom: 1px solid #dee2e6;
+  color: #495057;
+}
+
+.sales-detail-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.sales-detail-table tfoot tr {
+  background-color: #e8f5e9;
+  font-weight: bold;
+}
+
+.sales-detail-table tfoot td {
+  padding: 12px 8px;
+  border-top: 2px solid #27ae60;
+  border-bottom: 2px solid #27ae60;
+}
+
+.profit-cell {
+  color: #27ae60;
+  font-weight: 700;
+}
+
+.profit-total {
+  color: #27ae60;
+  font-weight: 700;
+  font-size: 16px;
+}

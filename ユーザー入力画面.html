@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ゲーム機買取お申込み</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* A simple style for the selected state of category and condition buttons */
+        .category-selected {
+            background-color: #e0f2fe; /* light-blue-100 */
+            color: #0c4a6e; /* light-blue-900 */
+            font-weight: bold;
+        }
+        .condition-selected {
+            background-color: #0ea5e9; /* sky-500 */
+            color: white;
+            border-color: #0ea5e9; /* sky-500 */
+        }
+        /* Hide number input arrows */
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans text-gray-800">
+
+    <!-- Header -->
+    <header class="bg-white shadow-md">
+        <div class="container mx-auto px-6 py-4">
+            <h1 class="text-2xl font-bold text-gray-700">ゲーム機 買取お申込み</h1>
+            <p class="text-sm text-gray-500 mt-1">買取をご希望の商品の数量を入力してください。</p>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="container mx-auto px-6 py-8 flex flex-col lg:flex-row gap-8">
+
+        <!-- Left Sidebar: Category Navigation -->
+        <aside class="w-full lg:w-1/4">
+            <div class="bg-white p-4 rounded-lg shadow-md">
+                <h2 class="text-lg font-bold border-b pb-2 mb-4">機種を選択</h2>
+                <nav>
+                    <ul>
+                        <li><a href="#" class="block px-4 py-2 rounded-md category-selected">PSP-3000</a></li>
+                        <li><a href="#" class="block px-4 py-2 rounded-md hover:bg-gray-200">PSP-2000</a></li>
+                        <li><a href="#" class="block px-4 py-2 rounded-md hover:bg-gray-200">PSP-1000</a></li>
+                        <li><a href="#" class="block px-4 py-2 rounded-md hover:bg-gray-200">PS Vita</a></li>
+                        <li><a href="#" class="block px-4 py-2 rounded-md hover:bg-gray-200">Nintendo Switch</a></li>
+                    </ul>
+                </nav>
+            </div>
+        </aside>
+
+        <!-- Right Content: Item List -->
+        <main class="w-full lg:w-3/4">
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-xl font-bold mb-6">PSP-3000 の買取リスト</h2>
+
+                <!-- Item Table Header -->
+                <div class="hidden md:grid grid-cols-12 gap-4 border-b pb-2 mb-4 font-bold text-gray-600">
+                    <div class="col-span-5">カラーバリエーション</div>
+                    <div class="col-span-4">状態</div>
+                    <div class="col-span-3 text-center">数量</div>
+                </div>
+
+                <!-- Item Row -->
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center border-b py-4 buyback-item">
+                    <div class="col-span-12 md:col-span-5">
+                        <p class="font-bold">ピアノ・ブラック</p>
+                    </div>
+                    <div class="col-span-12 md:col-span-4 flex gap-2">
+                        <button class="condition-btn border rounded-md px-4 py-1.5 text-sm hover:bg-gray-200 transition-colors" data-condition="美品">美品</button>
+                        <button class="condition-btn border rounded-md px-4 py-1.5 text-sm hover:bg-gray-200 transition-colors" data-condition="傷あり">傷あり</button>
+                    </div>
+                    <div class="col-span-12 md:col-span-3 flex items-center justify-center">
+                        <button class="quantity-btn bg-gray-200 hover:bg-gray-300 rounded-l-md px-3 py-1 font-bold" data-action="decrease">-</button>
+                        <input type="number" class="quantity-input w-12 text-center border-t border-b" value="0" min="0">
+                        <button class="quantity-btn bg-gray-200 hover:bg-gray-300 rounded-r-md px-3 py-1 font-bold" data-action="increase">+</button>
+                    </div>
+                </div>
+
+                <!-- Item Row -->
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center border-b py-4 buyback-item">
+                    <div class="col-span-12 md:col-span-5">
+                        <p class="font-bold">パール・ホワイト</p>
+                    </div>
+                    <div class="col-span-12 md:col-span-4 flex gap-2">
+                        <button class="condition-btn border rounded-md px-4 py-1.5 text-sm hover:bg-gray-200 transition-colors" data-condition="美品">美品</button>
+                        <button class="condition-btn border rounded-md px-4 py-1.5 text-sm hover:bg-gray-200 transition-colors" data-condition="傷あり">傷あり</button>
+                    </div>
+                    <div class="col-span-12 md:col-span-3 flex items-center justify-center">
+                        <button class="quantity-btn bg-gray-200 hover:bg-gray-300 rounded-l-md px-3 py-1 font-bold" data-action="decrease">-</button>
+                        <input type="number" class="quantity-input w-12 text-center border-t border-b" value="0" min="0">
+                        <button class="quantity-btn bg-gray-200 hover:bg-gray-300 rounded-r-md px-3 py-1 font-bold" data-action="increase">+</button>
+                    </div>
+                </div>
+                
+                <!-- Item Row -->
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center border-b py-4 buyback-item">
+                    <div class="col-span-12 md:col-span-5">
+                        <p class="font-bold">ミスティック・シルバー</p>
+                    </div>
+                    <div class="col-span-12 md:col-span-4 flex gap-2">
+                        <button class="condition-btn border rounded-md px-4 py-1.5 text-sm hover:bg-gray-200 transition-colors" data-condition="美品">美品</button>
+                        <button class="condition-btn border rounded-md px-4 py-1.5 text-sm hover:bg-gray-200 transition-colors" data-condition="傷あり">傷あり</button>
+                    </div>
+                    <div class="col-span-12 md:col-span-3 flex items-center justify-center">
+                        <button class="quantity-btn bg-gray-200 hover:bg-gray-300 rounded-l-md px-3 py-1 font-bold" data-action="decrease">-</button>
+                        <input type="number" class="quantity-input w-12 text-center border-t border-b" value="0" min="0">
+                        <button class="quantity-btn bg-gray-200 hover:bg-gray-300 rounded-r-md px-3 py-1 font-bold" data-action="increase">+</button>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+
+    </div>
+
+    <!-- Floating Cart / Summary -->
+    <div id="cart" class="fixed bottom-6 right-6 bg-white p-5 rounded-lg shadow-xl border w-72">
+        <h3 class="text-lg font-bold text-gray-800 border-b pb-2 mb-3">買取リスト</h3>
+        <div class="flex justify-between items-center mb-4">
+            <span class="text-gray-600">合計点数:</span>
+            <span id="total-quantity" class="text-2xl font-bold text-sky-600">0 点</span>
+        </div>
+        <button class="w-full bg-sky-500 hover:bg-sky-600 text-white font-bold py-2 px-4 rounded-md transition-colors">
+            申込みへ進む
+        </button>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const allItems = document.querySelectorAll('.buyback-item');
+            const totalQuantityElement = document.getElementById('total-quantity');
+
+            // Function to update the total quantity in the cart
+            const updateTotal = () => {
+                let total = 0;
+                document.querySelectorAll('.quantity-input').forEach(input => {
+                    total += parseInt(input.value, 10);
+                });
+                totalQuantityElement.textContent = `${total} 点`;
+            };
+
+            // Add event listeners to each item row
+            allItems.forEach(item => {
+                const quantityInput = item.querySelector('.quantity-input');
+                const decreaseBtn = item.querySelector('[data-action="decrease"]');
+                const increaseBtn = item.querySelector('[data-action="increase"]');
+                const conditionBtns = item.querySelectorAll('.condition-btn');
+
+                // Quantity buttons
+                decreaseBtn.addEventListener('click', () => {
+                    let currentValue = parseInt(quantityInput.value, 10);
+                    if (currentValue > 0) {
+                        quantityInput.value = currentValue - 1;
+                        updateTotal();
+                    }
+                });
+
+                increaseBtn.addEventListener('click', () => {
+                    let currentValue = parseInt(quantityInput.value, 10);
+                    quantityInput.value = currentValue + 1;
+                    updateTotal();
+                });
+                
+                quantityInput.addEventListener('change', updateTotal);
+
+                // Condition buttons
+                // This is a simple visual toggle, not tied to quantity logic
+                conditionBtns.forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        // Deselect other button in the same row
+                        conditionBtns.forEach(otherBtn => otherBtn.classList.remove('condition-selected'));
+                        // Select clicked button
+                        btn.classList.add('condition-selected');
+                    });
+                });
+            });
+
+            // Initial calculation
+            updateTotal();
+        });
+    </script>
+</body>
+</html>
+

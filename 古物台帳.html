@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>個別管理台帳</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .table-cell {
+            padding: 0.75rem 1rem;
+            vertical-align: middle;
+            border: 1px solid #e5e7eb; /* 罫線を追加 */
+        }
+        .header-cell {
+            font-weight: bold;
+            background-color: #f9fafb;
+            position: sticky;
+            top: 0;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans text-gray-800">
+
+    <!-- Header -->
+    <header class="bg-white shadow-md">
+        <div class="container mx-auto px-6 py-4">
+            <h1 class="text-2xl font-bold text-gray-700">個別管理台帳 (仕入・販売)</h1>
+            <p class="text-sm text-gray-500 mt-1">商品の仕入から販売までの取引を個別に記録・管理します。</p>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="container mx-auto px-6 py-8">
+        
+        <!-- Filter/Search Section -->
+        <div class="bg-white p-4 rounded-lg shadow-md mb-8 flex flex-wrap items-center gap-4">
+            <div class="flex items-center space-x-2">
+                <label for="start-date" class="text-sm font-medium text-gray-700 whitespace-nowrap">取引日:</label>
+                <input type="date" id="start-date" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm">
+                <span>～</span>
+                <input type="date" id="end-date" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm">
+            </div>
+            <div class="flex-grow min-w-[200px]">
+                <label for="keyword-search" class="text-sm font-medium text-gray-700">キーワード:</label>
+                <input type="text" id="keyword-search" placeholder="SKU、管理番号、S/N、仕入先名など" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm">
+            </div>
+            <div>
+                <label class="text-sm font-medium text-gray-700">&nbsp;</label>
+                <button id="filter-btn" class="mt-1 w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">検索</button>
+            </div>
+        </div>
+
+        <!-- Ledger Table -->
+        <div class="bg-white rounded-lg shadow-md overflow-x-auto" style="max-height: 70vh;">
+            <table class="w-full text-sm text-left" id="ledger-table">
+                <thead class="bg-gray-50 text-xs text-gray-700 uppercase">
+                    <tr>
+                        <th class="table-cell header-cell">仕入年月日</th>
+                        <th class="table-cell header-cell">品目 / 特徴</th>
+                        <th class="table-cell header-cell">SKU</th>
+                        <th class="table-cell header-cell">管理番号</th>
+                        <th class="table-cell header-cell text-right">仕入価格(円)</th>
+                        <th class="table-cell header-cell">仕入相手方</th>
+                        <th class="table-cell header-cell">売却年月日</th>
+                        <th class="table-cell header-cell text-right">売却価格(円)</th>
+                        <th class="table-cell header-cell">売却相手方</th>
+                    </tr>
+                </thead>
+                <tbody id="ledger-body">
+                    <!-- Data will be populated by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Dummy Data (管理番号, SKU を追加) ---
+            const ledgerEntries = [
+                { managementId: "MNG-001", sku: "PSP3000-PB-S", id: "SN-PB001", purchaseDate: "2025-10-05", category: "携帯用ゲーム機", features: "PSP-3000 ピアノ・ブラック", purchasePrice: 5200, seller: { name: "山田 太郎", address: "東京都練馬区東大泉X-X-X", verification: "運転免許証" }, saleDate: "2025-10-20", salePrice: 8500, buyer: { name: "John Smith", address: "123 Main St, Anytown, USA" } },
+                { managementId: "MNG-002", sku: "PSP3000-PB-A", id: "SN-PB002", purchaseDate: "2025-10-05", category: "携帯用ゲーム機", features: "PSP-3000 ピアノ・ブラック", purchasePrice: 4000, seller: { name: "山田 太郎", address: "東京都練馬区東大泉X-X-X", verification: "運転免許証" }, saleDate: null, salePrice: null, buyer: null },
+                { managementId: "MNG-003", sku: "PSP3000-PB-S", id: "SN-PB003", purchaseDate: "2025-10-04", category: "携帯用ゲーム機", features: "PSP-3000 ピアノ・ブラック", purchasePrice: 5000, seller: { name: "鈴木 花子", address: "東京都杉並区阿佐谷南Y-Y-Y", verification: "マイナンバーカード" }, saleDate: "2025-10-18", salePrice: 8250, buyer: { name: "Game Export Inc.", address: "456 Trade Ave, London, UK" } },
+                { managementId: "MNG-004", sku: "PSP3000-PB-B", id: "SN-PB004", purchaseDate: "2025-10-03", category: "携帯用ゲーム機", features: "PSP-3000 ピアノ・ブラック", purchasePrice: 2800, seller: { name: "佐藤 次郎", address: "埼玉県所沢市小手指町Z-Z-Z", verification: "健康保険証" }, saleDate: "2025-10-15", salePrice: 4500, buyer: { name: "Collector's Hub", address: "789 Hobby Ln, Paris, FR" } },
+                { managementId: "MNG-005", sku: "PSP3000-PW-A", id: "SN-PW002", purchaseDate: "2025-10-02", category: "携帯用ゲーム機", features: "PSP-3000 パール・ホワイト", purchasePrice: 4150, seller: { name: "田中 恵子", address: "神奈川県川崎市多摩区登戸A-A-A", verification: "運転免許証" }, saleDate: null, salePrice: null, buyer: null },
+                { managementId: "MNG-006", sku: "PSP3000-PW-C", id: "SN-PW003", purchaseDate: "2025-10-01", category: "携帯用ゲーム機", features: "PSP-3000 パール・ホワイト", purchasePrice: 1500, seller: { name: "伊藤 さくら", address: "千葉県市川市八幡B-B-B", verification: "パスポート" }, saleDate: "2025-10-10", salePrice: 3000, buyer: { name: "Retro Games GmbH", address: "10 Gaming Str, Berlin, DE" } },
+            ];
+
+            const ledgerBody = document.getElementById('ledger-body');
+            const formatCurrency = (value) => new Intl.NumberFormat('ja-JP').format(value);
+
+            function renderLedger(entries) {
+                ledgerBody.innerHTML = '';
+                if (entries.length === 0) {
+                    ledgerBody.innerHTML = `<tr><td colspan="9" class="text-center p-8 text-gray-500">該当する記録がありません。</td></tr>`;
+                    return;
+                }
+
+                entries.forEach(entry => {
+                    const row = document.createElement('tr');
+                    row.className = 'border-b hover:bg-gray-50';
+
+                    const isSold = entry.saleDate && entry.salePrice != null;
+
+                    row.innerHTML = `
+                        <td class="table-cell">${entry.purchaseDate}</td>
+                        <td class="table-cell">
+                            <div class="font-semibold">${entry.features}</div>
+                            <div class="text-xs text-gray-500">S/N: ${entry.id}</div>
+                        </td>
+                        <td class="table-cell font-mono text-xs">${entry.sku}</td>
+                        <td class="table-cell font-mono text-xs">${entry.managementId}</td>
+                        <td class="table-cell text-right">${formatCurrency(entry.purchasePrice)}</td>
+                        <td class="table-cell">
+                            <div class="font-semibold">${entry.seller.name}</div>
+                            <div class="text-xs text-gray-600">${entry.seller.address}</div>
+                             <div class="text-xs text-gray-500">(${entry.seller.verification})</div>
+                        </td>
+                        <td class="table-cell">${isSold ? entry.saleDate : '<span class="text-gray-400">未売却</span>'}</td>
+                        <td class="table-cell text-right">${isSold ? formatCurrency(entry.salePrice) : '<span class="text-gray-400">-</span>'}</td>
+                        <td class="table-cell">
+                            ${isSold ? `
+                                <div class="font-semibold">${entry.buyer.name}</div>
+                                <div class="text-xs text-gray-600">${entry.buyer.address}</div>
+                            ` : '<span class="text-gray-400">-</span>'}
+                        </td>
+                    `;
+                    ledgerBody.appendChild(row);
+                });
+            }
+
+            // --- Filter functionality ---
+            document.getElementById('filter-btn').addEventListener('click', () => {
+                const startDate = document.getElementById('start-date').value;
+                const endDate = document.getElementById('end-date').value;
+                const keyword = document.getElementById('keyword-search').value.toLowerCase();
+
+                const filteredEntries = ledgerEntries.filter(entry => {
+                    const purchaseDate = new Date(entry.purchaseDate);
+                    const saleDate = entry.saleDate ? new Date(entry.saleDate) : null;
+                    const start = startDate ? new Date(startDate) : null;
+                    const end = endDate ? new Date(endDate) : null;
+                    
+                    let dateMatch = true;
+                    if(start || end) {
+                        dateMatch = false;
+                        if (start && purchaseDate >= start && (!end || purchaseDate <= end)) dateMatch = true;
+                        if (saleDate && start && saleDate >= start && (!end || saleDate <= end)) dateMatch = true;
+                        if (!start && end && (purchaseDate <= end || (saleDate && saleDate <=end))) dateMatch = true;
+                    }
+                    if(!dateMatch) return false;
+                    
+                    if (keyword) {
+                        const searchString = [
+                            entry.managementId,
+                            entry.sku,
+                            entry.id,
+                            entry.category,
+                            entry.features,
+                            entry.seller.name,
+                            entry.seller.address,
+                            entry.buyer?.name,
+                            entry.buyer?.address
+                        ].join(' ').toLowerCase();
+                        if (!searchString.includes(keyword)) return false;
+                    }
+                    
+                    return true;
+                });
+
+                renderLedger(filteredEntries);
+            });
+
+            // --- Initial Render ---
+            renderLedger(ledgerEntries);
+        });
+    </script>
+</body>
+</html>
+

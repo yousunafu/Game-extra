@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>在庫管理画面</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .table-cell {
+            padding: 0.75rem 1rem;
+            vertical-align: middle;
+        }
+        .modal-overlay {
+            transition: opacity 0.3s ease;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans text-gray-800">
+
+    <!-- Header -->
+    <header class="bg-white shadow-md">
+        <div class="container mx-auto px-6 py-4">
+            <h1 class="text-2xl font-bold text-gray-700">在庫管理画面</h1>
+            <p class="text-sm text-gray-500 mt-1">現在の在庫状況と評価額を確認できます。</p>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="container mx-auto px-6 py-8" id="inventory-app">
+        
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h3 class="text-sm font-medium text-gray-500">総在庫数</h3>
+                <p id="total-stock-count" class="text-3xl font-bold mt-2">0 点</p>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h3 class="text-sm font-medium text-gray-500">在庫評価額 (合計)</h3>
+                <p id="total-stock-value" class="text-3xl font-bold text-green-600 mt-2">¥ 0</p>
+            </div>
+        </div>
+
+        <!-- Inventory Summary Table -->
+        <div class="bg-white rounded-lg shadow-md overflow-x-auto">
+            <h3 class="text-lg font-bold p-4 border-b">在庫サマリー</h3>
+            <table class="w-full text-sm text-left" id="inventory-summary-table">
+                <thead class="bg-gray-50 text-xs text-gray-700 uppercase">
+                    <tr>
+                        <th class="table-cell">商品情報</th>
+                        <th class="table-cell">ランク別 在庫数 / 買取単価</th>
+                        <th class="table-cell text-center">合計在庫</th>
+                        <th class="table-cell text-right">評価額 (円)</th>
+                    </tr>
+                </thead>
+                <tbody id="summary-body">
+                    <!-- Data will be populated by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+    
+    <!-- Individual Inventory Modal -->
+    <div id="details-modal" class="modal-overlay fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h2 id="modal-title" class="text-xl font-bold">個別在庫台帳</h2>
+                <button id="close-modal-btn" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+            </div>
+            <div class="overflow-y-auto">
+                <table class="w-full text-sm text-left">
+                    <thead class="bg-gray-50 text-xs text-gray-700 uppercase sticky top-0">
+                        <tr>
+                            <th class="table-cell">在庫ID</th>
+                            <th class="table-cell">仕入日</th>
+                            <th class="table-cell">仕入元ユーザー</th>
+                            <th class="table-cell text-center">ランク</th>
+                            <th class="table-cell text-right">仕入価格 (円)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="modal-body">
+                        <!-- Individual inventory items will be populated here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Dummy Data (本来はデータベースから取得) ---
+            const masterInventory = {
+                "PSP-3000 ピアノ・ブラック": [
+                    { id: "SN-PB001", date: "2025-10-05", user: "山田 太郎", rank: "S", price: 5200 },
+                    { id: "SN-PB002", date: "2025-10-05", user: "山田 太郎", rank: "A", price: 4000 },
+                    { id: "SN-PB003", date: "2025-10-04", user: "鈴木 花子", rank: "S", price: 5000 },
+                    { id: "SN-PB004", date: "2025-10-03", user: "佐藤 次郎", rank: "B", price: 2800 },
+                    { id: "SN-PB005", date: "2025-10-03", user: "佐藤 次郎", rank: "A", price: 4100 },
+                ],
+                "PSP-3000 パール・ホワイト": [
+                    { id: "SN-PW001", date: "2025-10-05", user: "高橋 三郎", rank: "A", price: 4200 },
+                    { id: "SN-PW002", date: "2025-10-02", user: "田中 恵子", rank: "A", price: 4150 },
+                    { id: "SN-PW003", date: "2025-10-01", user: "伊藤 さくら", rank: "C", price: 1500 },
+                ],
+                 "PSP-2000 フェリシア・ブルー": [
+                    { id: "SN-FB001", date: "2025-09-28", user: "渡辺 直樹", rank: "B", price: 2500 },
+                    { id: "SN-FB002", date: "2025-09-25", user: "山本 美咲", rank: "A", price: 3500 },
+                ],
+            };
+
+            const summaryBody = document.getElementById('summary-body');
+            const totalStockCountEl = document.getElementById('total-stock-count');
+            const totalStockValueEl = document.getElementById('total-stock-value');
+            
+            const modal = document.getElementById('details-modal');
+            const modalTitle = document.getElementById('modal-title');
+            const modalBody = document.getElementById('modal-body');
+            const closeModalBtn = document.getElementById('close-modal-btn');
+
+            const formatCurrency = (value) => new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY' }).format(value);
+
+            // --- Rank Colors for display ---
+            const rankStyles = {
+                'S': 'bg-purple-100 text-purple-800',
+                'A': 'bg-green-100 text-green-800',
+                'B': 'bg-yellow-100 text-yellow-800',
+                'C': 'bg-red-100 text-red-800',
+                'JUNK': 'bg-gray-100 text-gray-800'
+            };
+
+            function renderSummary() {
+                summaryBody.innerHTML = '';
+                let grandTotalStock = 0;
+                let grandTotalValue = 0;
+
+                for (const itemName in masterInventory) {
+                    const items = masterInventory[itemName];
+                    const rankCounts = { S: 0, A: 0, B: 0, C: 0, JUNK: 0 };
+                    const rankPrices = { S: [], A: [], B: [], C: [], JUNK: [] };
+                    let totalValue = 0;
+                    
+                    items.forEach(item => {
+                        if (rankCounts[item.rank] !== undefined) {
+                            rankCounts[item.rank]++;
+                            rankPrices[item.rank].push(item.price);
+                        }
+                        totalValue += item.price;
+                    });
+                    
+                    const totalStock = items.length;
+                    grandTotalStock += totalStock;
+                    grandTotalValue += totalValue;
+
+                    const rankHtml = Object.entries(rankCounts)
+                        .filter(([_, count]) => count > 0)
+                        .map(([rank, count]) => {
+                            const prices = rankPrices[rank];
+                            let priceDisplay = '';
+
+                            if (count > 0) {
+                                const minPrice = Math.min(...prices);
+                                const maxPrice = Math.max(...prices);
+                                
+                                if (minPrice === maxPrice) {
+                                    const formattedPrice = new Intl.NumberFormat('ja-JP').format(minPrice);
+                                    priceDisplay = `単価 ¥${formattedPrice}`;
+                                } else {
+                                    const formattedMin = new Intl.NumberFormat('ja-JP').format(minPrice);
+                                    const formattedMax = new Intl.NumberFormat('ja-JP').format(maxPrice);
+                                    priceDisplay = `単価 ¥${formattedMin}～${formattedMax}`;
+                                }
+                            }
+                            
+                            return `<span class="${rankStyles[rank]} text-xs font-bold mr-2 mb-1 inline-block px-2 py-1 rounded-full">${rank}: ${count} (${priceDisplay})</span>`;
+                        })
+                        .join(' ');
+                    
+                    const row = document.createElement('tr');
+                    row.className = 'border-b hover:bg-gray-50 cursor-pointer';
+                    row.dataset.itemName = itemName;
+                    row.innerHTML = `
+                        <td class="table-cell font-medium">${itemName.replace(' ', '<br><span class="text-xs text-gray-500">') + '</span>'}</td>
+                        <td class="table-cell">${rankHtml}</td>
+                        <td class="table-cell text-center font-bold">${totalStock}</td>
+                        <td class="table-cell text-right font-semibold">${formatCurrency(totalValue).replace('￥', '')}</td>
+                    `;
+                    summaryBody.appendChild(row);
+                }
+
+                totalStockCountEl.textContent = `${grandTotalStock} 点`;
+                totalStockValueEl.textContent = formatCurrency(grandTotalValue);
+            }
+
+            function openModal(itemName) {
+                const items = masterInventory[itemName];
+                if (!items) return;
+
+                modalTitle.textContent = `${itemName} - 個別在庫台帳`;
+                modalBody.innerHTML = '';
+
+                items.forEach(item => {
+                    const row = document.createElement('tr');
+                    row.className = 'border-b';
+                    row.innerHTML = `
+                        <td class="table-cell">${item.id}</td>
+                        <td class="table-cell">${item.date}</td>
+                        <td class="table-cell">${item.user}</td>
+                        <td class="table-cell text-center"><span class="${rankStyles[item.rank]} text-xs font-bold px-2 py-1 rounded-full">${item.rank}</span></td>
+                        <td class="table-cell text-right">${formatCurrency(item.price).replace('￥','')}</td>
+                    `;
+                    modalBody.appendChild(row);
+                });
+
+                modal.classList.remove('hidden');
+            }
+
+            // --- Event Listeners ---
+            summaryBody.addEventListener('click', (e) => {
+                const row = e.target.closest('tr');
+                if (row && row.dataset.itemName) {
+                    openModal(row.dataset.itemName);
+                }
+            });
+
+            closeModalBtn.addEventListener('click', () => modal.classList.add('hidden'));
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.add('hidden');
+                }
+            });
+
+            // --- Initial Render ---
+            renderSummary();
+        });
+    </script>
+</body>
+</html>
+

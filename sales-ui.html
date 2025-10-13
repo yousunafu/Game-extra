@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>販売管理画面 - 中古ゲーム機買取システム</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #7f8c8d;
+            margin-bottom: 30px;
+        }
+        
+        .customer-section {
+            background-color: #ecf0f1;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 30px;
+        }
+        
+        .customer-select {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 20px;
+            align-items: end;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        
+        select, input[type="text"], input[type="number"], input[type="date"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        select:focus, input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        button {
+            background-color: #3498db;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
+        }
+        
+        button.success {
+            background-color: #27ae60;
+        }
+        
+        button.success:hover {
+            background-color: #229954;
+        }
+        
+        button.secondary {
+            background-color: #95a5a6;
+        }
+        
+        button.secondary:hover {
+            background-color: #7f8c8d;
+        }
+        
+        .inventory-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+        
+        .inventory-table th, .inventory-table td {
+            padding: 12px;
+            text-align: left;
+            border: 1px solid #ddd;
+        }
+        
+        .inventory-table th {
+            background-color: #34495e;
+            color: white;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .inventory-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        
+        .inventory-table tr:hover {
+            background-color: #e8f4f8;
+        }
+        
+        .inventory-wrapper {
+            max-height: 500px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        
+        input[type="number"].quantity-input {
+            width: 80px;
+            text-align: center;
+        }
+        
+        .sku-code {
+            font-family: monospace;
+            background-color: #ecf0f1;
+            padding: 2px 8px;
+            border-radius: 3px;
+        }
+        
+        .rank-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 3px;
+            font-weight: bold;
+            font-size: 14px;
+            text-align: center;
+            min-width: 40px;
+        }
+        
+        .rank-s { background-color: #f39c12; color: white; }
+        .rank-a { background-color: #3498db; color: white; }
+        .rank-b { background-color: #27ae60; color: white; }
+        .rank-c { background-color: #95a5a6; color: white; }
+        
+        .total-section {
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 30px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        
+        .total-item {
+            text-align: center;
+        }
+        
+        .total-label {
+            font-size: 16px;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+        
+        .total-value {
+            font-size: 28px;
+            font-weight: bold;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+        
+        .filter-section {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .filter-controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .stock-badge {
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .stock-available { background-color: #27ae60; color: white; }
+        .stock-low { background-color: #f39c12; color: white; }
+        .stock-out { background-color: #e74c3c; color: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>販売管理画面</h1>
+        <p class="subtitle">顧客への商品販売を管理します</p>
+        
+        <div class="customer-section">
+            <h2 style="margin-bottom: 15px;">販売先顧客選択</h2>
+            <div class="customer-select">
+                <div class="form-group">
+                    <label for="customer">顧客名</label>
+                    <select id="customer" onchange="updatePricing()">
+                        <option value="">選択してください</option>
+                        <option value="tokyo-games">Tokyo Games Inc. (東京)</option>
+                        <option value="osaka-retro">Osaka Retro Store (大阪)</option>
+                        <option value="global-gaming">Global Gaming Ltd. (香港)</option>
+                        <option value="ny-collectors">NY Game Collectors (ニューヨーク)</option>
+                        <option value="london-vintage">London Vintage Games (ロンドン)</option>
+                    </select>
+                </div>
+                <button onclick="managePriceList()">価格リスト管理</button>
+            </div>
+            <div style="margin-top: 15px;" id="customerInfo" style="display: none;">
+                <p><strong>最終取引日:</strong> <span id="lastTransaction">2024/01/10</span></p>
+                <p><strong>取引総額:</strong> <span id="totalTransaction">¥2,450,000</span></p>
+            </div>
+        </div>
+        
+        <div class="filter-section">
+            <h3 style="margin-bottom: 15px;">在庫フィルター</h3>
+            <div class="filter-controls">
+                <div class="form-group">
+                    <label for="productFilter">商品</label>
+                    <select id="productFilter" onchange="filterInventory()">
+                        <option value="">全て</option>
+                        <option value="ps5">PlayStation 5</option>
+                        <option value="switch">Nintendo Switch</option>
+                        <option value="ps4">PlayStation 4</option>
+                        <option value="xbox">Xbox Series</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="rankFilter">ランク</label>
+                    <select id="rankFilter" onchange="filterInventory()">
+                        <option value="">全て</option>
+                        <option value="S">Sランク</option>
+                        <option value="A">Aランク</option>
+                        <option value="B">Bランク</option>
+                        <option value="C">Cランク</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>在庫状況</label>
+                    <div class="checkbox-group">
+                        <label><input type="checkbox" checked> 在庫あり</label>
+                        <label><input type="checkbox"> 販売済み</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <h2 style="margin-bottom: 20px;">在庫商品リスト</h2>
+        <div class="inventory-wrapper">
+            <table class="inventory-table">
+                <thead>
+                    <tr>
+                        <th>SKU</th>
+                        <th>管理番号</th>
+                        <th>商品名</th>
+                        <th>カラー</th>
+                        <th>ランク</th>
+                        <th>在庫数</th>
+                        <th>仕入単価</th>
+                        <th>販売単価</th>
+                        <th>販売数量</th>
+                        <th>小計</th>
+                    </tr>
+                </thead>
+                <tbody id="inventoryBody">
+                    <tr>
+                        <td><span class="sku-code">PS5-WHT-001</span></td>
+                        <td>MGN-2024-0001</td>
+                        <td>PlayStation 5</td>
+                        <td>ホワイト</td>
+                        <td><span class="rank-badge rank-s">S</span></td>
+                        <td><span class="stock-badge stock-available">5</span></td>
+                        <td>¥45,000</td>
+                        <td class="selling-price">¥55,000</td>
+                        <td><input type="number" class="quantity-input" min="0" max="5" value="0" onchange="updateSubtotal(this)"></td>
+                        <td class="subtotal">¥0</td>
+                    </tr>
+                    <tr>
+                        <td><span class="sku-code">NSW-GRY-012</span></td>
+                        <td>MGN-2024-0012</td>
+                        <td>Nintendo Switch</td>
+                        <td>グレー</td>
+                        <td><span class="rank-badge rank-a">A</span></td>
+                        <td><span class="stock-badge stock-available">8</span></td>
+                        <td>¥20,000</td>
+                        <td class="selling-price">¥28,000</td>
+                        <td><input type="number" class="quantity-input" min="0" max="8" value="0" onchange="updateSubtotal(this)"></td>
+                        <td class="subtotal">¥0</td>
+                    </tr>
+                    <tr>
+                        <td><span class="sku-code">PS4P-BLK-025</span></td>
+                        <td>MGN-2024-0025</td>
+                        <td>PlayStation 4 Pro</td>
+                        <td>ブラック</td>
+                        <td><span class="rank-badge rank-b">B</span></td>
+                        <td><span class="stock-badge stock-low">2</span></td>
+                        <td>¥15,000</td>
+                        <td class="selling-price">¥22,000</td>
+                        <td><input type="number" class="quantity-input" min="0" max="2" value="0" onchange="updateSubtotal(this)"></td>
+                        <td class="subtotal">¥0</td>
+                    </tr>
+                    <tr>
+                        <td><span class="sku-code">NSW-BLU-033</span></td>
+                        <td>MGN-2024-0033</td>
+                        <td>Nintendo Switch Lite</td>
+                        <td>ブルー</td>
+                        <td><span class="rank-badge rank-a">A</span></td>
+                        <td><span class="stock-badge stock-available">10</span></td>
+                        <td>¥12,000</td>
+                        <td class="selling-price">¥18,000</td>
+                        <td><input type="number" class="quantity-input" min="0" max="10" value="0" onchange="updateSubtotal(this)"></td>
+                        <td class="subtotal">¥0</td>
+                    </tr>
+                    <tr>
+                        <td><span class="sku-code">XSX-BLK-041</span></td>
+                        <td>MGN-2024-0041</td>
+                        <td>Xbox Series X</td>
+                        <td>ブラック</td>
+                        <td><span class="rank-badge rank-s">S</span></td>
+                        <td><span class="stock-badge stock-low">3</span></td>
+                        <td>¥40,000</td>
+                        <td class="selling-price">¥50,000</td>
+                        <td><input type="number" class="quantity-input" min="0" max="3" value="0" onchange="updateSubtotal(this)"></td>
+                        <td class="subtotal">¥0</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="total-section">
+            <div class="total-item">
+                <div class="total-label">販売点数</div>
+                <div class="total-value" id="totalQuantity">0</div>
+            </div>
+            <div class="total-item">
+                <div class="total-label">販売合計</div>
+                <div class="total-value" id="totalSales">¥0</div>
+            </div>
+            <div class="total-item">
+                <div class="total-label">利益見込</div>
+                <div class="total-value" id="totalProfit">¥0</div>
+            </div>
+        </div>
+        
+        <div class="action-buttons">
+            <button class="success" onclick="createInvoice()">インボイス作成</button>
+            <button onclick="saveDraft()">下書き保存</button>
+            <button class="secondary" onclick="clearSelection()">選択クリア</button>
+        </div>
+    </div>
+    
+    <script>
+        // 顧客別価格設定（実際はデータベースから取得）
+        const customerPricing = {
+            'tokyo-games': { multiplier: 1.0, discount: 0 },
+            'osaka-retro': { multiplier: 0.95, discount: 0 },
+            'global-gaming': { multiplier: 1.1, discount: 0 },
+            'ny-collectors': { multiplier: 1.15, discount: 0 },
+            'london-vintage': { multiplier: 1.2, discount: 0 }
+        };
+        
+        function updatePricing() {
+            const customer = document.getElementById('customer').value;
+            if (!customer) return;
+            
+            // 顧客情報を表示
+            document.getElementById('customerInfo').style.display = 'block';
+            
+            // 価格を更新
+            const rows = document.querySelectorAll('.inventory-table tbody tr');
+            rows.forEach(row => {
+                const basePriceText = row.cells[6].textContent;
+                const basePrice = parseInt(basePriceText.replace(/[¥,]/g, ''));
+                const customerPrice = Math.round(basePrice * customerPricing[customer].multiplier);
+                
+                row.querySelector('.selling-price').textContent = '¥' + customerPrice.toLocaleString();
+                updateSubtotal(row.querySelector('.quantity-input'));
+            });
+        }
+        
+        function updateSubtotal(input) {
+            const row = input.closest('tr');
+            const quantity = parseInt(input.value) || 0;
+            const priceText = row.querySelector('.selling-price').textContent;
+            const price = parseInt(priceText.replace(/[¥,]/g, ''));
+            const subtotal = quantity * price;
+            
+            row.querySelector('.subtotal').textContent = '¥' + subtotal.toLocaleString();
+            
+            updateTotals();
+        }
+        
+        function updateTotals() {
+            let totalQuantity = 0;
+            let totalSales = 0;
+            let totalCost = 0;
+            
+            const rows = document.querySelectorAll('.inventory-table tbody tr');
+            rows.forEach(row => {
+                const quantity = parseInt(row.querySelector('.quantity-input').value) || 0;
+                const subtotalText = row.querySelector('.subtotal').textContent;
+                const subtotal = parseInt(subtotalText.replace(/[¥,]/g, ''));
+                const costText = row.cells[6].textContent;
+                const cost = parseInt(costText.replace(/[¥,]/g, ''));
+                
+                totalQuantity += quantity;
+                totalSales += subtotal;
+                totalCost += cost * quantity;
+            });
+            
+            const totalProfit = totalSales - totalCost;
+            
+            document.getElementById('totalQuantity').textContent = totalQuantity;
+            document.getElementById('totalSales').textContent = '¥' + totalSales.toLocaleString();
+            document.getElementById('totalProfit').textContent = '¥' + totalProfit.toLocaleString();
+        }
+        
+        function createInvoice() {
+            const customer = document.getElementById('customer').value;
+            if (!customer) {
+                alert('顧客を選択してください');
+                return;
+            }
+            
+            const totalQuantity = document.getElementById('totalQuantity').textContent;
+            if (totalQuantity === '0') {
+                alert('販売する商品を選択してください');
+                return;
+            }
+            
+            const invoiceNumber = 'INV-' + Date.now();
+            alert('インボイスを作成しました。\nインボイス番号: ' + invoiceNumber + '\n販売先: ' + document.getElementById('customer').options[document.getElementById('customer').selectedIndex].text);
+        }
+        
+        function saveDraft() {
+            alert('下書きを保存しました。');
+        }
+        
+        function clearSelection() {
+            if (confirm('選択をクリアしてよろしいですか？')) {
+                document.querySelectorAll('.quantity-input').forEach(input => {
+                    input.value = '0';
+                    updateSubtotal(input);
+                });
+            }
+        }
+        
+        function filterInventory() {
+            // フィルター処理の実装（簡易版）
+            console.log('在庫をフィルタリングしました');
+        }
+        
+        function managePriceList() {
+            alert('価格リスト管理画面を開きます（未実装）');
+        }
+    </script>
+</body>
+</html>

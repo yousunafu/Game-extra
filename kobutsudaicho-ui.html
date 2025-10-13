@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>個別管理台帳（古物台帳） - 中古ゲーム機買取システム</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #7f8c8d;
+            margin-bottom: 30px;
+        }
+        
+        .search-section {
+            background-color: #f8f9fa;
+            padding: 25px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        
+        .search-controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+            font-size: 14px;
+        }
+        
+        input[type="text"], input[type="date"], select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        button {
+            background-color: #3498db;
+            color: white;
+            padding: 10px 25px;
+            border: none;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
+        }
+        
+        button.secondary {
+            background-color: #95a5a6;
+        }
+        
+        button.secondary:hover {
+            background-color: #7f8c8d;
+        }
+        
+        button.success {
+            background-color: #27ae60;
+        }
+        
+        button.success:hover {
+            background-color: #229954;
+        }
+        
+        .search-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        
+        .ledger-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .ledger-table th, .ledger-table td {
+            padding: 10px;
+            text-align: left;
+            border: 1px solid #ddd;
+            white-space: nowrap;
+        }
+        
+        .ledger-table th {
+            background-color: #34495e;
+            color: white;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .ledger-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        
+        .ledger-table tr:hover {
+            background-color: #e8f4f8;
+        }
+        
+        .table-wrapper {
+            overflow-x: auto;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 30px;
+        }
+        
+        .sku-code {
+            font-family: monospace;
+            background-color: #ecf0f1;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+        
+        .status-badge {
+            padding: 4px 10px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: bold;
+            text-align: center;
+            display: inline-block;
+        }
+        
+        .status-in-stock { background-color: #27ae60; color: white; }
+        .status-sold { background-color: #e74c3c; color: white; }
+        .status-reserved { background-color: #f39c12; color: white; }
+        
+        .rank-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        
+        .rank-s { background-color: #f39c12; color: white; }
+        .rank-a { background-color: #3498db; color: white; }
+        .rank-b { background-color: #27ae60; color: white; }
+        .rank-c { background-color: #95a5a6; color: white; }
+        
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: space-between;
+            margin-bottom: 30px;
+        }
+        
+        .left-actions, .right-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .info-section {
+            background-color: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .info-item {
+            text-align: center;
+        }
+        
+        .info-label {
+            font-size: 14px;
+            color: #7f8c8d;
+            margin-bottom: 5px;
+        }
+        
+        .info-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .highlight {
+            background-color: #fff3cd;
+        }
+        
+        .law-notice {
+            background-color: #d1ecf1;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 30px;
+            border-left: 4px solid #3498db;
+        }
+        
+        .law-notice h3 {
+            color: #0c5460;
+            margin-bottom: 10px;
+        }
+        
+        .law-notice p {
+            color: #0c5460;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>個別管理台帳（古物台帳）</h1>
+        <p class="subtitle">古物営業法に基づく取引記録の管理</p>
+        
+        <div class="law-notice">
+            <h3>⚖️ 古物営業法対応</h3>
+            <p>この台帳は古物営業法第16条に基づく帳簿として管理されています。必須記載事項：取引年月日、品目、特徴、数量、代価、相手方の住所・氏名・職業・年齢</p>
+        </div>
+        
+        <div class="search-section">
+            <h3 style="margin-bottom: 20px;">検索条件</h3>
+            <div class="search-controls">
+                <div class="form-group">
+                    <label for="dateFrom">取引日（開始）</label>
+                    <input type="date" id="dateFrom" value="2024-01-01">
+                </div>
+                <div class="form-group">
+                    <label for="dateTo">取引日（終了）</label>
+                    <input type="date" id="dateTo" value="2024-12-31">
+                </div>
+                <div class="form-group">
+                    <label for="transactionType">取引種別</label>
+                    <select id="transactionType">
+                        <option value="">全て</option>
+                        <option value="purchase">買取</option>
+                        <option value="sale">販売</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="productSearch">商品名</label>
+                    <input type="text" id="productSearch" placeholder="商品名で検索">
+                </div>
+                <div class="form-group">
+                    <label for="skuSearch">SKU/管理番号</label>
+                    <input type="text" id="skuSearch" placeholder="SKUまたは管理番号">
+                </div>
+                <div class="form-group">
+                    <label for="customerSearch">相手方氏名</label>
+                    <input type="text" id="customerSearch" placeholder="氏名で検索">
+                </div>
+            </div>
+            <div class="search-actions">
+                <button onclick="searchRecords()">検索</button>
+                <button class="secondary" onclick="clearSearch()">クリア</button>
+            </div>
+        </div>
+        
+        <div class="info-section">
+            <div class="info-item">
+                <div class="info-label">表示件数</div>
+                <div class="info-value" id="recordCount">125</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">買取合計</div>
+                <div class="info-value" style="color: #e74c3c;">¥3,850,000</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">販売合計</div>
+                <div class="info-value" style="color: #27ae60;">¥4,950,000</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">粗利益</div>
+                <div class="info-value" style="color: #3498db;">¥1,100,000</div>
+            </div>
+        </div>
+        
+        <div class="action-buttons">
+            <div class="left-actions">
+                <button class="success" onclick="addRecord()">新規登録</button>
+                <button onclick="importData()">インポート</button>
+            </div>
+            <div class="right-actions">
+                <button onclick="exportData()">エクスポート</button>
+                <button onclick="printLedger()">印刷</button>
+            </div>
+        </div>
+        
+        <div class="table-wrapper">
+            <table class="ledger-table">
+                <thead>
+                    <tr>
+                        <th>取引日</th>
+                        <th>取引種別</th>
+                        <th>SKU</th>
+                        <th>管理番号</th>
+                        <th>品目（商品名）</th>
+                        <th>特徴（カラー・状態）</th>
+                        <th>ランク</th>
+                        <th>数量</th>
+                        <th>代価</th>
+                        <th>相手方氏名</th>
+                        <th>相手方住所</th>
+                        <th>相手方職業</th>
+                        <th>相手方年齢</th>
+                        <th>販売日</th>
+                        <th>販売価格</th>
+                        <th>販売先</th>
+                        <th>状態</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>2024/01/15</td>
+                        <td style="color: #e74c3c;">買取</td>
+                        <td><span class="sku-code">PS5-WHT-001</span></td>
+                        <td>MGN-2024-0001</td>
+                        <td>PlayStation 5</td>
+                        <td>ホワイト・美品</td>
+                        <td><span class="rank-badge rank-s">S</span></td>
+                        <td>1</td>
+                        <td>¥45,000</td>
+                        <td>山田太郎</td>
+                        <td>東京都新宿区○○1-2-3</td>
+                        <td>会社員</td>
+                        <td>35</td>
+                        <td>2024/01/20</td>
+                        <td>¥55,000</td>
+                        <td>Tokyo Games Inc.</td>
+                        <td><span class="status-badge status-sold">売却済</span></td>
+                    </tr>
+                    <tr>
+                        <td>2024/01/15</td>
+                        <td style="color: #e74c3c;">買取</td>
+                        <td><span class="sku-code">NSW-GRY-012</span></td>
+                        <td>MGN-2024-0012</td>
+                        <td>Nintendo Switch</td>
+                        <td>グレー・良品</td>
+                        <td><span class="rank-badge rank-a">A</span></td>
+                        <td>1</td>
+                        <td>¥20,000</td>
+                        <td>鈴木花子</td>
+                        <td>東京都渋谷区△△2-3-4</td>
+                        <td>学生</td>
+                        <td>22</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td><span class="status-badge status-in-stock">在庫</span></td>
+                    </tr>
+                    <tr class="highlight">
+                        <td>2024/01/16</td>
+                        <td style="color: #e74c3c;">買取</td>
+                        <td><span class="sku-code">PS4P-BLK-025</span></td>
+                        <td>MGN-2024-0025</td>
+                        <td>PlayStation 4 Pro</td>
+                        <td>ブラック・傷あり</td>
+                        <td><span class="rank-badge rank-b">B</span></td>
+                        <td>1</td>
+                        <td>¥15,000</td>
+                        <td>田中次郎</td>
+                        <td>神奈川県横浜市□□3-4-5</td>
+                        <td>自営業</td>
+                        <td>42</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td><span class="status-badge status-reserved">予約済</span></td>
+                    </tr>
+                    <tr>
+                        <td>2024/01/17</td>
+                        <td style="color: #e74c3c;">買取</td>
+                        <td><span class="sku-code">NSW-TRQ-033</span></td>
+                        <td>MGN-2024-0033</td>
+                        <td>Nintendo Switch Lite</td>
+                        <td>ターコイズ・美品</td>
+                        <td><span class="rank-badge rank-a">A</span></td>
+                        <td>1</td>
+                        <td>¥12,000</td>
+                        <td>佐藤美香</td>
+                        <td>埼玉県さいたま市××4-5-6</td>
+                        <td>主婦</td>
+                        <td>38</td>
+                        <td>2024/01/25</td>
+                        <td>¥18,000</td>
+                        <td>Global Gaming Ltd.</td>
+                        <td><span class="status-badge status-sold">売却済</span></td>
+                    </tr>
+                    <tr>
+                        <td>2024/01/18</td>
+                        <td style="color: #e74c3c;">買取</td>
+                        <td><span class="sku-code">XSX-BLK-041</span></td>
+                        <td>MGN-2024-0041</td>
+                        <td>Xbox Series X</td>
+                        <td>ブラック・美品</td>
+                        <td><span class="rank-badge rank-s">S</span></td>
+                        <td>1</td>
+                        <td>¥40,000</td>
+                        <td>高橋健一</td>
+                        <td>千葉県千葉市○△5-6-7</td>
+                        <td>公務員</td>
+                        <td>45</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td><span class="status-badge status-in-stock">在庫</span></td>
+                    </tr>
+                    <tr>
+                        <td>2024/01/19</td>
+                        <td style="color: #27ae60;">販売</td>
+                        <td><span class="sku-code">PS5-BLK-042</span></td>
+                        <td>MGN-2024-0042</td>
+                        <td>PlayStation 5</td>
+                        <td>ブラック・良品</td>
+                        <td><span class="rank-badge rank-a">A</span></td>
+                        <td>1</td>
+                        <td>¥40,000</td>
+                        <td>木村誠</td>
+                        <td>東京都港区▽▽6-7-8</td>
+                        <td>会社員</td>
+                        <td>31</td>
+                        <td>2024/01/19</td>
+                        <td>¥52,000</td>
+                        <td>NY Game Collectors</td>
+                        <td><span class="status-badge status-sold">売却済</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <div style="text-align: center; margin-top: 20px;">
+            <button onclick="loadMore()">さらに読み込む</button>
+        </div>
+    </div>
+    
+    <script>
+        // 検索機能
+        function searchRecords() {
+            const dateFrom = document.getElementById('dateFrom').value;
+            const dateTo = document.getElementById('dateTo').value;
+            const transactionType = document.getElementById('transactionType').value;
+            
+            console.log('検索条件:', {
+                dateFrom,
+                dateTo,
+                transactionType
+            });
+            
+            alert('検索を実行しました');
+            // 実際の実装では、フィルタリングロジックを実装
+        }
+        
+        // 検索条件クリア
+        function clearSearch() {
+            document.getElementById('dateFrom').value = '';
+            document.getElementById('dateTo').value = '';
+            document.getElementById('transactionType').value = '';
+            document.getElementById('productSearch').value = '';
+            document.getElementById('skuSearch').value = '';
+            document.getElementById('customerSearch').value = '';
+        }
+        
+        // 新規登録
+        function addRecord() {
+            alert('新規登録画面を開きます');
+            // 実際の実装では、新規登録モーダルまたは画面遷移
+        }
+        
+        // データインポート
+        function importData() {
+            const format = prompt('インポート形式を選択してください:\n1. CSV\n2. Excel', '1');
+            if (format) {
+                alert('ファイル選択ダイアログを開きます');
+            }
+        }
+        
+        // データエクスポート
+        function exportData() {
+            const format = prompt('エクスポート形式を選択してください:\n1. CSV\n2. Excel\n3. PDF', '1');
+            if (format) {
+                const formatName = format === '1' ? 'CSV' : format === '2' ? 'Excel' : 'PDF';
+                alert('古物台帳を' + formatName + '形式でエクスポートしました');
+            }
+        }
+        
+        // 印刷
+        function printLedger() {
+            window.print();
+        }
+        
+        // さらに読み込む
+        function loadMore() {
+            alert('次の50件を読み込みました');
+            // 実際の実装では、APIから次のデータを取得して追加
+        }
+        
+        // リアルタイム検索（商品名）
+        document.getElementById('productSearch').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const rows = document.querySelectorAll('.ledger-table tbody tr');
+            
+            rows.forEach(row => {
+                const productName = row.cells[4].textContent.toLowerCase();
+                row.style.display = productName.includes(searchTerm) ? '' : 'none';
+            });
+            
+            updateRecordCount();
+        });
+        
+        // リアルタイム検索（SKU/管理番号）
+        document.getElementById('skuSearch').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const rows = document.querySelectorAll('.ledger-table tbody tr');
+            
+            rows.forEach(row => {
+                const sku = row.cells[2].textContent.toLowerCase();
+                const managementNumber = row.cells[3].textContent.toLowerCase();
+                row.style.display = (sku.includes(searchTerm) || managementNumber.includes(searchTerm)) ? '' : 'none';
+            });
+            
+            updateRecordCount();
+        });
+        
+        // リアルタイム検索（相手方氏名）
+        document.getElementById('customerSearch').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const rows = document.querySelectorAll('.ledger-table tbody tr');
+            
+            rows.forEach(row => {
+                const customerName = row.cells[9].textContent.toLowerCase();
+                const salesCustomer = row.cells[15].textContent.toLowerCase();
+                row.style.display = (customerName.includes(searchTerm) || salesCustomer.includes(searchTerm)) ? '' : 'none';
+            });
+            
+            updateRecordCount();
+        });
+        
+        // 表示件数更新
+        function updateRecordCount() {
+            const visibleRows = document.querySelectorAll('.ledger-table tbody tr:not([style*="display: none"])');
+            document.getElementById('recordCount').textContent = visibleRows.length;
+        }
+        
+        // 行クリックで詳細表示（実装例）
+        document.querySelectorAll('.ledger-table tbody tr').forEach(row => {
+            row.addEventListener('click', function() {
+                const sku = this.cells[2].textContent;
+                console.log('詳細表示:', sku);
+                // 実際の実装では、詳細モーダルを表示
+            });
+        });
+    </script>
+</body>
+</html>
