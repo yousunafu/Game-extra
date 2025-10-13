@@ -194,6 +194,26 @@ const SalesAnalytics = () => {
         <h1>📊 販売分析</h1>
         <p className="subtitle">顧客と商品の詳細な分析を行います</p>
 
+        <div className="selection-screen">
+          <button 
+            className="selection-btn user-btn"
+            onClick={() => setViewMode('user')}
+          >
+            <div className="btn-icon">👥</div>
+            <div className="btn-title">ユーザー分析</div>
+            <div className="btn-description">セラー・バイヤーの取引傾向を分析</div>
+          </button>
+
+          <button 
+            className="selection-btn product-btn"
+            onClick={() => setViewMode('product')}
+          >
+            <div className="btn-icon">📦</div>
+            <div className="btn-title">商品別分析</div>
+            <div className="btn-description">商品ごとの売れ行きと人気度を分析</div>
+          </button>
+        </div>
+
         {/* CSVインポートセクション */}
         <div className="import-section">
           <h2>📤 CSVインポート / エクスポート</h2>
@@ -267,26 +287,6 @@ APP-2024-001,2024/01/10,佐藤 花子,山田太郎,yamada@example.com,090-1234-5
               </ul>
             </div>
           </details>
-        </div>
-
-        <div className="selection-screen">
-          <button 
-            className="selection-btn user-btn"
-            onClick={() => setViewMode('user')}
-          >
-            <div className="btn-icon">👥</div>
-            <div className="btn-title">ユーザー分析</div>
-            <div className="btn-description">セラー・バイヤーの取引傾向を分析</div>
-          </button>
-
-          <button 
-            className="selection-btn product-btn"
-            onClick={() => setViewMode('product')}
-          >
-            <div className="btn-icon">📦</div>
-            <div className="btn-title">商品別分析</div>
-            <div className="btn-description">商品ごとの売れ行きと人気度を分析</div>
-          </button>
         </div>
       </div>
     );
