@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
@@ -19,9 +19,23 @@ import Inventory from './pages/Inventory';
 import Ledger from './pages/Ledger';
 import Dashboard from './pages/Dashboard';
 import SalesAnalytics from './pages/SalesAnalytics';
+import { insertMockAnalyticsData } from './utils/insertMockAnalyticsData';
 
 function AppContent() {
   const { isAuthenticated } = useAuth();
+
+  // 初回起動時にモックデータを自動投入
+  useEffect(() => {
+    const salesLedger = localStorage.getItem('salesLedger');
+    const allApplications = localStorage.getItem('allApplications');
+    
+    // データが空の場合のみ自動投入
+    if (!salesLedger || !allApplications) {
+      console.log('📊 初回起動: 販売分析用モックデータを自動投入します...');
+      insertMockAnalyticsData();
+      console.log('✅ モックデータの投入が完了しました');
+    }
+  }, []);
 
   return (
     <Routes>

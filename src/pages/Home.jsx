@@ -7,12 +7,18 @@ import './Home.css';
 const Home = () => {
   const { user, isCustomer, isOverseasCustomer, isStaff, isManager } = useAuth();
 
-  const handleInsertMockData = () => {
-    const confirmed = window.confirm('販売分析用のモックデータを投入しますか？\n\n既存のsalesLedgerとallApplicationsが上書きされます。');
+  const handleResetMockData = () => {
+    const confirmed = window.confirm('📊 販売分析用データをリセットしますか？\n\n現在のデータを削除して、初期のモックデータに戻します。\nこの操作は取り消せません。');
     if (confirmed) {
+      // データをクリア
+      localStorage.removeItem('salesLedger');
+      localStorage.removeItem('allApplications');
+      
+      // モックデータを再投入
       const result = insertMockAnalyticsData();
       if (result.success) {
-        alert(`✅ モックデータを投入しました！\n\n📊 販売記録: ${result.salesCount}件\n📤 買取申込: ${result.applicationsCount}件\n\n「販売分析」メニューから確認できます。`);
+        alert(`✅ データをリセットしました！\n\n📊 販売記録: ${result.salesCount}件\n📤 買取申込: ${result.applicationsCount}件\n\n初期のモックデータに戻りました。`);
+        window.location.reload(); // ページをリロードして反映
       }
     }
   };
@@ -113,25 +119,25 @@ const Home = () => {
           <h2>🧪 開発者ツール</h2>
           <div style={{ textAlign: 'center' }}>
             <button 
-              onClick={handleInsertMockData}
+              onClick={handleResetMockData}
               style={{
                 padding: '15px 30px',
                 fontSize: '16px',
-                backgroundColor: '#9b59b6',
+                backgroundColor: '#e74c3c',
                 color: 'white',
                 border: 'none',
                 borderRadius: '8px',
                 cursor: 'pointer',
                 transition: 'all 0.3s',
-                boxShadow: '0 2px 8px rgba(155, 89, 182, 0.3)'
+                boxShadow: '0 2px 8px rgba(231, 76, 60, 0.3)'
               }}
-              onMouseOver={(e) => e.target.style.backgroundColor = '#8e44ad'}
-              onMouseOut={(e) => e.target.style.backgroundColor = '#9b59b6'}
+              onMouseOver={(e) => e.target.style.backgroundColor = '#c0392b'}
+              onMouseOut={(e) => e.target.style.backgroundColor = '#e74c3c'}
             >
-              📊 販売分析用モックデータを投入
+              🔄 販売分析データをリセット
             </button>
             <p style={{ marginTop: '10px', color: '#7f8c8d', fontSize: '14px' }}>
-              販売分析機能のデモ用に、サンプルデータを投入します
+              販売分析のデータを初期状態に戻します（既存データは削除されます）
             </p>
           </div>
         </div>

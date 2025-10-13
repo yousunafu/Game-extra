@@ -46,6 +46,133 @@ const SalesAnalytics = () => {
     setBuybackData(buyback);
   };
 
+  // サンプルCSVダウンロード
+  const handleDownloadSampleCSV = (type) => {
+    if (type === 'sales') {
+      const headers = ['取引番号', '日付', '担当者', 'バイヤー名', 'メール', '国', '商品名', 'ランク', '数量', '販売単価', '販売額', '仕入単価', '仕入額', '利益/台', '利益額'];
+      const sample = [
+        'REQ-2024-001', '2024/01/15', '佐藤 花子', 'Tokyo Games Inc.', 'info@tokyogames.jp', 'Japan', 'Sony PlayStation 5', 'S', '3', '52000', '156000', '35000', '105000', '17000', '51000'
+      ];
+      const csv = '\ufeff' + [headers.join(','), sample.join(',')].join('\n');
+      exportToCSV(csv, 'サンプル_販売データ.csv');
+    } else if (type === 'buyback') {
+      const headers = ['申込番号', '日付', '担当者', '顧客名', 'メール', '電話', '職業', 'メーカー', '機種', 'カラー', '数量', 'ランク', '買取単価'];
+      const sample = [
+        'APP-2024-001', '2024/01/10', '佐藤 花子', '山田太郎', 'yamada@example.com', '090-1234-5678', '会社員', 'Sony', 'PlayStation 5', 'ホワイト', '2', 'S', '35000'
+      ];
+      const csv = '\ufeff' + [headers.join(','), sample.join(',')].join('\n');
+      exportToCSV(csv, 'サンプル_買取データ.csv');
+    }
+  };
+
+  // CSVインポート
+  const handleImportCSV = (event, type) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target.result;
+        const lines = text.split('\n').filter(line => line.trim());
+        
+        if (lines.length < 2) {
+          alert('❌ CSVファイルが空です');
+          return;
+        }
+
+        const headers = lines[0].split(',');
+        const dataRows = lines.slice(1);
+
+        if (type === 'sales') {
+          // 販売データのインポート
+          const newSales = dataRows.map((row, idx) => {
+            const values = row.split(',');
+            return {
+              id: `SALE-IMPORT-${Date.now()}-${idx}`,
+              type: 'sales',
+              requestNumber: values[0] || `REQ-IMPORT-${idx}`,
+              soldDate: values[1] || new Date().toISOString(),
+              salesStaffName: values[2] || '',
+              customer: {
+                name: values[3] || '不明',
+                email: values[4] || '',
+                country: values[5] || 'N/A'
+              },
+              items: [{
+                product: values[6] || '不明',
+                rank: values[7] || 'A',
+                quantity: parseInt(values[8]) || 1,
+                salesPrice: parseInt(values[9]) || 0,
+                totalSalesAmount: parseInt(values[10]) || 0,
+                acquisitionPrice: parseInt(values[11]) || 0,
+                totalAcquisitionCost: parseInt(values[12]) || 0,
+                profit: parseInt(values[13]) || 0,
+                totalProfit: parseInt(values[14]) || 0,
+                source: { type: 'customer', name: '不明' }
+              }],
+              summary: {
+                totalSalesAmount: parseInt(values[10]) || 0,
+                totalAcquisitionCost: parseInt(values[12]) || 0,
+                totalProfit: parseInt(values[14]) || 0
+              }
+            };
+          });
+
+          const existingSales = JSON.parse(localStorage.getItem('salesLedger') || '[]');
+          const merged = [...existingSales, ...newSales];
+          localStorage.setItem('salesLedger', JSON.stringify(merged));
+          
+          alert(`✅ 販売データを${newSales.length}件インポートしました`);
+          loadAllData();
+          
+        } else if (type === 'buyback') {
+          // 買取データのインポート
+          const newBuyback = dataRows.map((row, idx) => {
+            const values = row.split(',');
+            return {
+              applicationNumber: values[0] || `APP-IMPORT-${idx}`,
+              date: values[1] || new Date().toISOString(),
+              assessedBy: values[2] || '',
+              customer: {
+                name: values[3] || '不明',
+                email: values[4] || `import${idx}@example.com`,
+                phone: values[5] || '',
+                occupation: values[6] || ''
+              },
+              items: [{
+                manufacturer: values[7] || '',
+                manufacturerLabel: values[7] || '',
+                console: values[8] || '',
+                consoleLabel: values[8] || '',
+                color: values[9] || '',
+                quantity: parseInt(values[10]) || 1,
+                assessedRank: values[11] || 'A',
+                estimatedPrice: parseInt(values[12]) || 0
+              }],
+              status: 'in_inventory',
+              totalEstimate: parseInt(values[12]) || 0
+            };
+          });
+
+          const existingBuyback = JSON.parse(localStorage.getItem('allApplications') || '[]');
+          const merged = [...existingBuyback, ...newBuyback];
+          localStorage.setItem('allApplications', JSON.stringify(merged));
+          
+          alert(`✅ 買取データを${newBuyback.length}件インポートしました`);
+          loadAllData();
+        }
+        
+        event.target.value = '';
+        
+      } catch (error) {
+        alert('❌ CSVの読み込みに失敗しました: ' + error.message);
+      }
+    };
+
+    reader.readAsText(file);
+  };
+
   const handleBack = () => {
     if (viewMode === 'seller-detail') {
       setViewMode('seller-list');
@@ -66,6 +193,81 @@ const SalesAnalytics = () => {
       <div className="analytics-container">
         <h1>📊 販売分析</h1>
         <p className="subtitle">顧客と商品の詳細な分析を行います</p>
+
+        {/* CSVインポートセクション */}
+        <div className="import-section">
+          <h2>📤 CSVインポート / エクスポート</h2>
+          <p className="import-description">過去の取引データをCSVファイルで管理できます</p>
+          
+          {/* サンプルダウンロード */}
+          <div className="sample-section">
+            <h3>📋 サンプルCSVをダウンロード</h3>
+            <p className="sample-note">まずサンプルをダウンロードして、フォーマットを確認してください</p>
+            <div className="sample-buttons">
+              <button className="sample-btn" onClick={() => handleDownloadSampleCSV('sales')}>
+                📊 販売データのサンプル
+              </button>
+              <button className="sample-btn" onClick={() => handleDownloadSampleCSV('buyback')}>
+                📤 買取データのサンプル
+              </button>
+            </div>
+          </div>
+
+          {/* インポートボタン */}
+          <div className="import-upload-section">
+            <h3>📥 データをインポート</h3>
+            <p className="upload-note">⚠️ フォーマットが正確でないとエラーになります。サンプルと同じ形式で作成してください。</p>
+            <div className="import-buttons">
+              <label className="import-btn sales-import">
+                <input 
+                  type="file" 
+                  accept=".csv" 
+                  onChange={(e) => handleImportCSV(e, 'sales')}
+                  style={{ display: 'none' }}
+                />
+                <span>📊 販売データをインポート</span>
+              </label>
+              <label className="import-btn buyback-import">
+                <input 
+                  type="file" 
+                  accept=".csv" 
+                  onChange={(e) => handleImportCSV(e, 'buyback')}
+                  style={{ display: 'none' }}
+                />
+                <span>📤 買取データをインポート</span>
+              </label>
+            </div>
+          </div>
+
+          {/* フォーマット説明 */}
+          <details className="format-details">
+            <summary>📖 CSVフォーマット詳細</summary>
+            <div className="format-content">
+              <h4>販売データCSV</h4>
+              <pre className="format-code">
+取引番号,日付,担当者,バイヤー名,メール,国,商品名,ランク,数量,販売単価,販売額,仕入単価,仕入額,利益/台,利益額
+REQ-2024-001,2024/01/15,佐藤 花子,Tokyo Games Inc.,info@tokyogames.jp,Japan,Sony PlayStation 5,S,3,52000,156000,35000,105000,17000,51000
+              </pre>
+              
+              <h4>買取データCSV</h4>
+              <pre className="format-code">
+申込番号,日付,担当者,顧客名,メール,電話,職業,メーカー,機種,カラー,数量,ランク,買取単価
+APP-2024-001,2024/01/10,佐藤 花子,山田太郎,yamada@example.com,090-1234-5678,会社員,Sony,PlayStation 5,ホワイト,2,S,35000
+              </pre>
+              
+              <h4>注意事項</h4>
+              <ul className="format-notes">
+                <li>✅ 1行目は必ずヘッダー行（列名）</li>
+                <li>✅ 2行目以降がデータ行</li>
+                <li>✅ カンマ区切り（,）</li>
+                <li>✅ 日付形式: YYYY/MM/DD</li>
+                <li>✅ 数値は半角数字のみ</li>
+                <li>⚠️ データ内にカンマは使用不可</li>
+                <li>⚠️ Excelで保存時は「CSV UTF-8」形式を選択</li>
+              </ul>
+            </div>
+          </details>
+        </div>
 
         <div className="selection-screen">
           <button 
@@ -185,6 +387,21 @@ const SalesAnalytics = () => {
 };
 
 // ========================================
+// CSV エクスポート関数
+// ========================================
+const exportToCSV = (data, filename) => {
+  const blob = new Blob([data], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.setAttribute('href', url);
+  link.setAttribute('download', filename);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
+// ========================================
 // セラー一覧コンポーネント
 // ========================================
 const SellerList = ({ buybackData, onBack, onSelectSeller }) => {
@@ -237,14 +454,42 @@ const SellerList = ({ buybackData, onBack, onSelectSeller }) => {
 
   const sellerList = getSellerList();
 
+  // CSVエクスポート
+  const handleExportCSV = () => {
+    const headers = ['顧客名', 'メールアドレス', '買取回数', '買取点数', '総買取額', '平均買取額', '頻度', '初回日', '最終日'];
+    const rows = sellerList.map(seller => {
+      const avgAmount = seller.totalTransactions > 0 ? Math.round(seller.totalAmount / seller.totalTransactions) : 0;
+      const daysBetween = Math.floor((new Date(seller.lastDate) - new Date(seller.firstDate)) / (1000 * 60 * 60 * 24));
+      const frequency = seller.totalTransactions > 1 ? `${Math.round(daysBetween / (seller.totalTransactions - 1))}日に1回` : '初回のみ';
+      
+      return [
+        seller.name,
+        seller.email,
+        seller.totalTransactions,
+        seller.totalItems,
+        seller.totalAmount,
+        avgAmount,
+        frequency,
+        new Date(seller.firstDate).toLocaleDateString('ja-JP'),
+        new Date(seller.lastDate).toLocaleDateString('ja-JP')
+      ].join(',');
+    });
+    
+    const csv = '\ufeff' + [headers.join(','), ...rows].join('\n');
+    exportToCSV(csv, `セラー一覧_${new Date().toISOString().split('T')[0]}.csv`);
+  };
+
   return (
     <div className="analytics-container">
       <div className="analytics-header-nav">
         <button className="back-btn" onClick={onBack}>← 戻る</button>
-        <div>
+        <div style={{ flex: 1 }}>
           <h1>📤 セラー一覧</h1>
           <p className="subtitle">買取顧客（{sellerList.length}名）をクリックして詳細を確認</p>
         </div>
+        <button className="export-csv-btn" onClick={handleExportCSV}>
+          📥 CSVダウンロード
+        </button>
       </div>
 
       {sellerList.length === 0 ? (
@@ -452,14 +697,41 @@ const SellerDetail = ({ seller, buybackData, onBack }) => {
     }
   };
 
+  // CSVエクスポート（取引履歴）
+  const handleExportCSV = () => {
+    const headers = ['取引番号', '日付', '担当者', '商品名', 'ランク', '数量', '買取単価', '買取額'];
+    const rows = [];
+    
+    transactions.forEach(app => {
+      app.items.forEach(item => {
+        rows.push([
+          app.applicationNumber,
+          new Date(app.date).toLocaleDateString('ja-JP'),
+          app.assessedBy || '',
+          `${item.manufacturerLabel || item.manufacturer} ${item.consoleLabel || item.console}${item.color ? ' (' + item.color + ')' : ''}`,
+          item.assessedRank || '',
+          item.quantity,
+          item.estimatedPrice || 0,
+          (item.estimatedPrice || 0) * item.quantity
+        ].join(','));
+      });
+    });
+    
+    const csv = '\ufeff' + [headers.join(','), ...rows].join('\n');
+    exportToCSV(csv, `セラー詳細_${seller.name}_${new Date().toISOString().split('T')[0]}.csv`);
+  };
+
   return (
     <div className="analytics-container">
       <div className="analytics-header-nav">
         <button className="back-btn" onClick={onBack}>← 一覧に戻る</button>
-        <div>
+        <div style={{ flex: 1 }}>
           <h1>👤 {seller.name} さんの取引詳細</h1>
           <p className="subtitle">買取履歴と傾向分析</p>
         </div>
+        <button className="export-csv-btn" onClick={handleExportCSV}>
+          📥 CSVダウンロード
+        </button>
       </div>
 
       {/* 顧客情報カード */}
@@ -650,14 +922,44 @@ const BuyerList = ({ salesData, onBack, onSelectBuyer }) => {
 
   const buyerList = getBuyerList();
 
+  // CSVエクスポート
+  const handleExportCSV = () => {
+    const headers = ['バイヤー名', 'メールアドレス', '国', '購入回数', '購入点数', '総購入額', '総利益', '利益率(%)', '購入頻度', '初回日', '最終日'];
+    const rows = buyerList.map(buyer => {
+      const profitRate = buyer.totalSales > 0 ? ((buyer.totalProfit / buyer.totalSales) * 100).toFixed(1) : 0;
+      const daysBetween = Math.floor((new Date(buyer.lastDate) - new Date(buyer.firstDate)) / (1000 * 60 * 60 * 24));
+      const frequency = buyer.totalTransactions > 1 ? `${Math.round(daysBetween / (buyer.totalTransactions - 1))}日に1回` : '初回のみ';
+      
+      return [
+        buyer.name,
+        buyer.email,
+        buyer.country,
+        buyer.totalTransactions,
+        buyer.totalItems,
+        buyer.totalSales,
+        buyer.totalProfit,
+        profitRate,
+        frequency,
+        new Date(buyer.firstDate).toLocaleDateString('ja-JP'),
+        new Date(buyer.lastDate).toLocaleDateString('ja-JP')
+      ].join(',');
+    });
+    
+    const csv = '\ufeff' + [headers.join(','), ...rows].join('\n');
+    exportToCSV(csv, `バイヤー一覧_${new Date().toISOString().split('T')[0]}.csv`);
+  };
+
   return (
     <div className="analytics-container">
       <div className="analytics-header-nav">
         <button className="back-btn" onClick={onBack}>← 戻る</button>
-        <div>
+        <div style={{ flex: 1 }}>
           <h1>📥 バイヤー一覧</h1>
           <p className="subtitle">購入顧客（{buyerList.length}社）をクリックして詳細を確認</p>
         </div>
+        <button className="export-csv-btn" onClick={handleExportCSV}>
+          📥 CSVダウンロード
+        </button>
       </div>
 
       {buyerList.length === 0 ? (
@@ -874,14 +1176,42 @@ const BuyerDetail = ({ buyer, salesData, onBack }) => {
     }
   };
 
+  // CSVエクスポート（取引履歴）
+  const handleExportCSV = () => {
+    const headers = ['取引番号', '日付', '担当者', '商品名', 'ランク', '数量', '販売単価', '販売額', '利益額'];
+    const rows = [];
+    
+    transactions.forEach(record => {
+      record.items.forEach(item => {
+        rows.push([
+          record.requestNumber,
+          new Date(record.soldDate).toLocaleDateString('ja-JP'),
+          record.salesStaffName ? record.salesStaffName.split('（')[0] : '',
+          item.product,
+          item.rank,
+          item.quantity,
+          item.salesPrice,
+          item.totalSalesAmount,
+          item.totalProfit
+        ].join(','));
+      });
+    });
+    
+    const csv = '\ufeff' + [headers.join(','), ...rows].join('\n');
+    exportToCSV(csv, `バイヤー詳細_${buyer.name}_${new Date().toISOString().split('T')[0]}.csv`);
+  };
+
   return (
     <div className="analytics-container">
       <div className="analytics-header-nav">
         <button className="back-btn" onClick={onBack}>← 一覧に戻る</button>
-        <div>
+        <div style={{ flex: 1 }}>
           <h1>🏢 {buyer.name} の取引詳細</h1>
           <p className="subtitle">購入履歴と収益分析</p>
         </div>
+        <button className="export-csv-btn" onClick={handleExportCSV}>
+          📥 CSVダウンロード
+        </button>
       </div>
 
       {/* 顧客情報カード */}
@@ -1052,14 +1382,37 @@ const ProductAnalysis = ({ salesData, buybackData, onBack }) => {
   const productStats = getProductStats();
   const topProducts = productStats.sort((a, b) => b.totalProfit - a.totalProfit).slice(0, 20);
 
+  // CSVエクスポート
+  const handleExportCSV = () => {
+    const headers = ['順位', '商品名', 'ランク', '販売数', '販売額', '利益額', '利益率(%)'];
+    const rows = topProducts.map((product, idx) => {
+      const profitRate = product.totalSales > 0 ? ((product.totalProfit / product.totalSales) * 100).toFixed(1) : 0;
+      return [
+        idx + 1,
+        product.product,
+        product.rank,
+        product.totalSold,
+        product.totalSales,
+        product.totalProfit,
+        profitRate
+      ].join(',');
+    });
+    
+    const csv = '\ufeff' + [headers.join(','), ...rows].join('\n');
+    exportToCSV(csv, `商品別分析_${new Date().toISOString().split('T')[0]}.csv`);
+  };
+
   return (
     <div className="analytics-container">
       <div className="analytics-header-nav">
         <button className="back-btn" onClick={onBack}>← 戻る</button>
-        <div>
+        <div style={{ flex: 1 }}>
           <h1>📦 商品別分析</h1>
           <p className="subtitle">商品ごとの売れ行きと利益分析</p>
         </div>
+        <button className="export-csv-btn" onClick={handleExportCSV}>
+          📥 CSVダウンロード
+        </button>
       </div>
 
       {topProducts.length === 0 ? (
