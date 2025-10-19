@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import './Login.css';
 
-const Login = () => {
+const StaffLogin = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -21,6 +21,14 @@ const Login = () => {
       const result = login(email, password);
       
       if (result.success) {
+        // スタッフ系のみログイン許可
+        const user = JSON.parse(localStorage.getItem('currentUser'));
+        if (!['staff', 'manager', 'admin'].includes(user.role)) {
+          setError('このログイン画面はスタッフ専用です');
+          localStorage.removeItem('currentUser');
+          setLoading(false);
+          return;
+        }
         navigate('/');
       } else {
         setError(result.error);
@@ -33,11 +41,11 @@ const Login = () => {
   };
 
   return (
-    <div className="login-container">
+    <div className="login-container staff-login">
       <div className="login-box">
         <div className="login-header">
-          <h1>🎮 ゲーム買取システム</h1>
-          <p>ログインしてください</p>
+          <h1>🔐 システム管理画面</h1>
+          <p>スタッフログイン</p>
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">
@@ -49,7 +57,7 @@ const Login = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              placeholder="example@mail.com"
+              placeholder="staff@gamestore.com"
               disabled={loading}
             />
           </div>
@@ -69,18 +77,13 @@ const Login = () => {
 
           {error && <div className="error-message">{error}</div>}
 
-          <button type="submit" className="login-button" disabled={loading}>
+          <button type="submit" className="login-button staff-btn" disabled={loading}>
             {loading ? 'ログイン中...' : 'ログイン'}
           </button>
 
-          <div className="register-link">
-            <p>アカウントをお持ちでない方は</p>
-            <Link to="/register">新規会員登録はこちら（国内・買取）</Link>
-          </div>
-          
-          <div className="register-link" style={{ marginTop: '5px' }}>
-            <p>For overseas buyers</p>
-            <Link to="/register/buyer">Register here (Purchase)</Link>
+          <div className="staff-note">
+            <p>⚠️ このページはスタッフ専用です</p>
+            <p>一般のお客様は<Link to="/login">こちら</Link>からログインしてください</p>
           </div>
         </form>
       </div>
@@ -88,4 +91,5 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default StaffLogin;
+

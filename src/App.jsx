@@ -4,8 +4,14 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import PrivateRoute from './components/PrivateRoute';
 import Login from './components/Login';
+import CustomerLogin from './components/CustomerLogin';
+import BuyerLogin from './components/BuyerLogin';
+import StaffLogin from './components/StaffLogin';
 import Register from './components/Register';
 import BuyerRegister from './components/BuyerRegister';
+import StaffManagement from './pages/StaffManagement';
+import ProductManagement from './pages/ProductManagement';
+import PricingManagement from './pages/PricingManagement';
 import Home from './pages/Home';
 import Unauthorized from './pages/Unauthorized';
 import AccountSettings from './pages/AccountSettings';
@@ -39,19 +45,64 @@ function AppContent() {
 
   return (
     <Routes>
+      {/* ログイン画面（3つ） */}
       <Route path="/login" element={
-        isAuthenticated ? <Navigate to="/" replace /> : <Login />
+        isAuthenticated ? <Navigate to="/" replace /> : <CustomerLogin />
       } />
       
+      <Route path="/intl/portal/auth" element={
+        isAuthenticated ? <Navigate to="/" replace /> : <BuyerLogin />
+      } />
+      
+      <Route path="/sys/staff/auth" element={
+        isAuthenticated ? <Navigate to="/" replace /> : <StaffLogin />
+      } />
+      
+      {/* 後方互換のためのリダイレクト */}
+      <Route path="/login/customer" element={<Navigate to="/login" replace />} />
+      <Route path="/login/buyer" element={<Navigate to="/intl/portal/auth" replace />} />
+      <Route path="/login/staff" element={<Navigate to="/sys/staff/auth" replace />} />
+      
+      {/* 登録画面 */}
       <Route path="/register" element={
         isAuthenticated ? <Navigate to="/" replace /> : <Register />
       } />
       
-      <Route path="/register/buyer" element={
+      <Route path="/intl/portal/register" element={
         isAuthenticated ? <Navigate to="/" replace /> : <BuyerRegister />
       } />
       
+      {/* 後方互換 */}
+      <Route path="/register/buyer" element={<Navigate to="/intl/portal/register" replace />} />
+      
       <Route path="/unauthorized" element={<Unauthorized />} />
+      
+      {/* スタッフ管理画面 */}
+      <Route path="/sys/admin/staff-management" element={
+        <PrivateRoute allowedRoles={['admin', 'manager']}>
+          <Layout>
+            <StaffManagement />
+          </Layout>
+        </PrivateRoute>
+      } />
+      
+      {/* 商品マスタ管理画面 */}
+      <Route path="/sys/admin/product-management" element={
+        <PrivateRoute allowedRoles={['admin', 'manager']}>
+          <Layout>
+            <ProductManagement />
+          </Layout>
+        </PrivateRoute>
+      } />
+      
+      {/* 価格管理画面 */}
+      <Route path="/sys/admin/pricing-management" element={
+        <PrivateRoute allowedRoles={['admin', 'manager']}>
+          <Layout>
+            <PricingManagement />
+          </Layout>
+        </PrivateRoute>
+      } />
       
       <Route path="/" element={
         <PrivateRoute>

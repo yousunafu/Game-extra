@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { manufacturers, gameConsoles, colors, conditions, accessories } from '../data/gameConsoles';
+import { manufacturers, colors, conditions, accessories } from '../data/gameConsoles';
+import { getAllConsoles } from '../utils/productMaster';
+import { generateManagementNumber } from '../utils/productCodeGenerator';
 import './Rating.css';
 
 // 付属品を短く表示する関数
@@ -29,11 +31,18 @@ const Rating = () => {
   const [applications, setApplications] = useState([]);
   const [statusFilter, setStatusFilter] = useState('all');
   const [assessorName, setAssessorName] = useState(''); // 査定担当者
+  const [allGameConsoles, setAllGameConsoles] = useState({});
+  const [showNotesFor, setShowNotesFor] = useState({}); // どの商品の備考を表示するか {itemId: true/false}
   
   // 商品追加用（カンタン見積もりの場合）
   const [showAddItem, setShowAddItem] = useState(false);
   const [showShippingInfo, setShowShippingInfo] = useState(true);
   const [printMode, setPrintMode] = useState('estimate');
+  
+  // 在庫登録確認モーダル
+  const [showInventoryModal, setShowInventoryModal] = useState(false);
+  const [generatedManagementNumbers, setGeneratedManagementNumbers] = useState({});
+  const [editingManagementNumbers, setEditingManagementNumbers] = useState({}); // 編集中の管理番号 {itemId: true/false}
   const [newItem, setNewItem] = useState({
     productType: 'console',
     manufacturer: '',
@@ -90,6 +99,7 @@ const Rating = () => {
 
   useEffect(() => {
     loadApplications();
+    setAllGameConsoles(getAllConsoles());
   }, []);
 
   // ページがアクティブになった時にデータを再読み込み
@@ -129,8 +139,8 @@ const Rating = () => {
       console: ''
     });
     
-    if (manufacturerValue && gameConsoles[manufacturerValue]) {
-      setAvailableConsoles(gameConsoles[manufacturerValue]);
+    if (manufacturerValue && allGameConsoles[manufacturerValue]) {
+      setAvailableConsoles(allGameConsoles[manufacturerValue]);
     } else {
       setAvailableConsoles([]);
     }
@@ -227,6 +237,24 @@ const Rating = () => {
     localStorage.setItem('allApplications', JSON.stringify(updatedApplications));
   };
 
+  // 商品の備考変更
+  const handleNotesChange = (itemId, notes) => {
+    const updatedApplications = applications.map((app, index) => {
+      if (index === selectedApplication) {
+        return {
+          ...app,
+          items: app.items.map(item =>
+            item.id === itemId ? { ...item, itemNotes: notes } : item
+          )
+        };
+      }
+      return app;
+    });
+
+    setApplications(updatedApplications);
+    localStorage.setItem('allApplications', JSON.stringify(updatedApplications));
+  };
+
   // 商品削除
   const handleRemoveItem = (itemId) => {
     if (!window.confirm('この商品を削除しますか？')) {
@@ -287,9 +315,7 @@ const Rating = () => {
   const calculateTotal = () => {
     if (!currentApp || !currentApp.items) return 0;
     const itemsTotal = currentApp.items.reduce((sum, item) => sum + ((item.buybackPrice || 0) * item.quantity), 0);
-    // 自分で箱を用意する場合は500円加算
-    const shippingBonus = (currentApp.shippingInfo && currentApp.shippingInfo.shippingMethod === 'own') ? 500 : 0;
-    return itemsTotal + shippingBonus;
+    return itemsTotal;
   };
 
   // ステータス変更
@@ -305,26 +331,6 @@ const Rating = () => {
     localStorage.setItem('allApplications', JSON.stringify(updatedApplications));
   };
 
-  // ステータスアクション
-  const handleKitSent = () => {
-    const sentDate = new Date().toISOString().split('T')[0];
-    updateStatus('kit_sent', {
-      shippingInfo: { ...currentApp.shippingInfo, kitSentDate: sentDate }
-    });
-    alert('キット発送済みに更新しました');
-  };
-
-  const handleReceived = () => {
-    const receivedDate = new Date().toISOString().split('T')[0];
-    updateStatus('received', {
-      shippingInfo: { ...currentApp.shippingInfo, receivedDate: receivedDate }
-    });
-    alert('商品到着を記録しました');
-  };
-
-  const handleStartAssessing = () => {
-    updateStatus('assessing');
-  };
 
   const handleConfirmRating = () => {
     if (!currentApp.items || currentApp.items.length === 0) {
@@ -355,7 +361,99 @@ const Rating = () => {
     alert(`査定を確定しました。\n買取合計金額: ¥${calculateTotal().toLocaleString()}\n次のステータス: ${getStatusLabel(nextStatus)}`);
   };
 
-  const handleAddToInventory = () => {
+  // 在庫登録前の管理番号生成とモーダル表示
+  const handleOpenInventoryModal = () => {
+    // 各商品の管理番号を生成
+    const managementNumbers = {};
+    let sequenceCounter = 1;
+    
+    // 商品ごとにグループ化（同じ機種は連番）
+    const productGroups = {};
+    
+    currentApp.items.forEach(item => {
+      const productKey = `${item.manufacturer}_${item.console}`;
+      if (!productGroups[productKey]) {
+        productGroups[productKey] = [];
+      }
+      productGroups[productKey].push(item);
+    });
+    
+    // 各商品に管理番号を生成
+    Object.keys(productGroups).forEach(productKey => {
+      let groupSequence = 1;
+      productGroups[productKey].forEach(item => {
+        const numbers = [];
+        for (let i = 0; i < item.quantity; i++) {
+          const managementNumber = generateManagementNumber(
+            currentApp.customer.name,
+            item.manufacturer,
+            item.console,
+            groupSequence,
+            item.productType || 'console'
+          );
+          numbers.push(managementNumber);
+          groupSequence++;
+        }
+        managementNumbers[item.id] = numbers;
+      });
+    });
+    
+    setGeneratedManagementNumbers(managementNumbers);
+    setEditingManagementNumbers({}); // 編集モードをリセット
+    setShowInventoryModal(true);
+  };
+
+  // 管理番号の編集を開始
+  const handleStartEditManagementNumber = (itemId) => {
+    setEditingManagementNumbers({...editingManagementNumbers, [itemId]: true});
+  };
+
+  // 管理番号の編集を保存
+  const handleSaveManagementNumber = (itemId) => {
+    setEditingManagementNumbers({...editingManagementNumbers, [itemId]: false});
+  };
+
+  // 管理番号の編集をキャンセル
+  const handleCancelEditManagementNumber = (itemId) => {
+    // 元の値に戻す（再生成）
+    const item = currentApp.items.find(i => i.id === itemId);
+    if (item) {
+      const numbers = [];
+      const productKey = `${item.manufacturer}_${item.console}`;
+      let groupSequence = 1;
+      
+      for (let i = 0; i < item.quantity; i++) {
+        const managementNumber = generateManagementNumber(
+          currentApp.customer.name,
+          item.manufacturer,
+          item.console,
+          groupSequence,
+          item.productType || 'console'
+        );
+        numbers.push(managementNumber);
+        groupSequence++;
+      }
+      
+      setGeneratedManagementNumbers({
+        ...generatedManagementNumbers,
+        [itemId]: numbers
+      });
+    }
+    setEditingManagementNumbers({...editingManagementNumbers, [itemId]: false});
+  };
+
+  // 個別の管理番号を編集
+  const handleUpdateSingleManagementNumber = (itemId, index, newValue) => {
+    const numbers = [...(generatedManagementNumbers[itemId] || [])];
+    numbers[index] = newValue;
+    setGeneratedManagementNumbers({
+      ...generatedManagementNumbers,
+      [itemId]: numbers
+    });
+  };
+
+  // 在庫登録を実行
+  const handleConfirmAddToInventory = () => {
     // 在庫データを保存
     const inventoryData = JSON.parse(localStorage.getItem('inventory') || '[]');
     
@@ -378,6 +476,11 @@ const Rating = () => {
         // 既存在庫があれば数量を加算
         const beforeQuantity = inventoryData[existingIndex].quantity;
         inventoryData[existingIndex].quantity += item.quantity;
+        
+        // 管理番号も追加
+        const existingNumbers = inventoryData[existingIndex].managementNumbers || [];
+        const newNumbers = generatedManagementNumbers[item.id] || [];
+        inventoryData[existingIndex].managementNumbers = [...existingNumbers, ...newNumbers];
         
         // 在庫変更履歴を記録
         const inventoryHistory = JSON.parse(localStorage.getItem('inventoryHistory') || '[]');
@@ -419,6 +522,7 @@ const Rating = () => {
           quantity: item.quantity,
           buybackPrice: item.buybackPrice,
           acquisitionPrice: item.buybackPrice, // 統一
+          managementNumbers: generatedManagementNumbers[item.id] || [], // 管理番号を追加
           registeredDate: new Date().toISOString(),
           customer: {
             name: currentApp.customer.name,
@@ -455,7 +559,25 @@ const Rating = () => {
     
     localStorage.setItem('inventory', JSON.stringify(inventoryData));
     
-    updateStatus('in_inventory');
+    // 管理番号をアプリケーションデータに保存
+    const updatedApplications = applications.map((app, index) => {
+      if (index === selectedApplication) {
+        return {
+          ...app,
+          status: 'in_inventory',
+          items: app.items.map(item => ({
+            ...item,
+            managementNumbers: generatedManagementNumbers[item.id] || []
+          }))
+        };
+      }
+      return app;
+    });
+    
+    setApplications(updatedApplications);
+    localStorage.setItem('allApplications', JSON.stringify(updatedApplications));
+    
+    setShowInventoryModal(false);
     alert('在庫に登録しました');
   };
 
@@ -565,44 +687,58 @@ const Rating = () => {
                 <th>数量</th>
                 <th>単価</th>
                 <th>金額</th>
+                <th>備考</th>
               </tr>
             </thead>
             <tbody>
               {currentApp.items.map((item, index) => (
-                <tr key={item.id}>
-                  <td>{index + 1}</td>
-                  <td>
-                    {item.productType === 'software' ? (
-                      <>
-                        {item.softwareName}<br />
-                        <small>({item.manufacturerLabel} - {item.consoleLabel})</small>
-                      </>
-                    ) : (
-                      `${item.manufacturerLabel} - ${item.consoleLabel}`
+                <React.Fragment key={item.id}>
+                  <tr>
+                    <td>{index + 1}</td>
+                    <td>
+                      {item.productType === 'software' ? (
+                        <>
+                          {item.softwareName}<br />
+                          <small>({item.manufacturerLabel} - {item.consoleLabel})</small>
+                        </>
+                      ) : (
+                        `${item.manufacturerLabel} - ${item.consoleLabel}`
                     )}
                   </td>
-                  <td>{item.conditionLabel}</td>
+                  <td>{item.condition || '-'}</td>
                   <td>{item.productType === 'console' ? getShortAccessoriesLabel(item.accessories) : '-'}</td>
                   <td>{item.assessedRank || '-'}</td>
                   <td>{item.quantity}</td>
                   <td>¥{(item.buybackPrice || 0).toLocaleString()}</td>
                   <td>¥{((item.buybackPrice || 0) * item.quantity).toLocaleString()}</td>
+                  <td className="notes-cell">{item.itemNotes ? '📝' : '-'}</td>
                 </tr>
+                  {/* C評価の場合、お客様が入力した状態詳細を追加行で表示 */}
+                  {item.condition === 'C' && item.conditionNotes && (
+                    <tr className="condition-detail-row">
+                      <td colSpan="9" className="condition-detail-cell">
+                        <div className="condition-detail-content">
+                          <strong>状態詳細（お客様記入）：</strong> {item.conditionNotes}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  {/* 備考がある場合の追加行 */}
+                  {item.itemNotes && (
+                    <tr className="notes-detail-row">
+                      <td colSpan="9" className="notes-detail-cell">
+                        <div className="notes-detail-content">
+                          <strong>備考：</strong> {item.itemNotes}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               ))}
             </tbody>
           </table>
 
           <div className="estimate-total">
-            <div className="total-row">
-              <span>小計</span>
-              <span>¥{currentApp.items.reduce((sum, item) => sum + ((item.buybackPrice || 0) * item.quantity), 0).toLocaleString()}</span>
-            </div>
-            {(currentApp.shippingInfo && currentApp.shippingInfo.shippingMethod === 'own') && (
-              <div className="total-row">
-                <span>🎁 自己発送ボーナス</span>
-                <span>¥500</span>
-              </div>
-            )}
             <div className="total-row grand-total">
               <span>合計買取金額</span>
               <span>¥{calculateTotal().toLocaleString()}</span>
@@ -612,6 +748,10 @@ const Rating = () => {
           <div className="estimate-notes">
             <h3>備考</h3>
             {currentApp.notes && <p>{currentApp.notes}</p>}
+            <div className="condition-rank-guide">
+              <p><strong>【状態ランク説明】</strong></p>
+              <p>S：極美品・未使用に近い / A：美品・目立つ傷なし / B：使用感あり・通常使用可 / C：傷・汚れあり・動作に問題なし</p>
+            </div>
             <p>※ 上記金額は査定結果に基づく買取金額です。</p>
             <p>※ 商品の状態により、金額が変更になる場合がございます。</p>
           </div>
@@ -628,10 +768,11 @@ const Rating = () => {
       
       {/* 初期選択画面 */}
       {viewMode === 'selection' && (
-        <div className="selection-screen">
+        <>
           <h1>買取査定画面</h1>
           <p className="subtitle">取引を選択してください</p>
-          <div className="selection-buttons">
+
+          <div className="selection-screen">
             <button 
               className="selection-btn ongoing-btn"
               onClick={() => setViewMode('ongoing')}
@@ -641,6 +782,7 @@ const Rating = () => {
               <div className="btn-description">査定中・対応中の取引を表示</div>
               <div className="btn-count">{applications.filter(app => app.status !== 'in_inventory').length}件</div>
             </button>
+
             <button 
               className="selection-btn completed-btn"
               onClick={() => setViewMode('completed')}
@@ -651,7 +793,7 @@ const Rating = () => {
               <div className="btn-count">{applications.filter(app => app.status === 'in_inventory').length}件</div>
             </button>
           </div>
-        </div>
+        </>
       )}
 
       {/* 進行中の取引一覧 */}
@@ -838,9 +980,7 @@ const Rating = () => {
                 <div className={`progress-line ${['kit_sent', 'pickup_scheduled', 'received', 'assessing', 'awaiting_approval', 'approved', 'auto_approved', 'in_inventory'].includes(currentApp.status) ? 'completed' : 'pending'}`}></div>
                 <div className={`progress-step ${['kit_sent', 'pickup_scheduled', 'received', 'assessing', 'awaiting_approval', 'approved', 'auto_approved', 'in_inventory'].includes(currentApp.status) ? 'completed' : currentApp.status === 'applied' ? 'current' : 'pending'}`}>
                   <div className="step-circle">2</div>
-                  <span className="step-label">
-                    {currentApp.shippingInfo.shippingMethod === 'kit' ? '発送準備' : '集荷予定'}
-                  </span>
+                  <span className="step-label">発送準備</span>
                 </div>
                 <div className={`progress-line ${['received', 'assessing', 'awaiting_approval', 'approved', 'auto_approved', 'in_inventory'].includes(currentApp.status) ? 'completed' : 'pending'}`}></div>
                 <div className={`progress-step ${['received', 'assessing', 'awaiting_approval', 'approved', 'auto_approved', 'in_inventory'].includes(currentApp.status) ? 'completed' : ['kit_sent', 'pickup_scheduled'].includes(currentApp.status) ? 'current' : 'pending'}`}>
@@ -900,24 +1040,7 @@ const Rating = () => {
               {showShippingInfo && (
               <div className="shipping-layout">
                 <div className="shipping-info-left">
-                  <p><strong>発送方法:</strong> {currentApp.shippingInfo.shippingMethod === 'kit' ? '📮 無料宅配キット' : '📦 自分で用意（+500円）'}</p>
-                  
-                  {currentApp.shippingInfo.shippingMethod === 'kit' && (
-                    <>
-                      <p><strong>ダンボール:</strong> 大 {currentApp.shippingInfo.boxSizeLarge}枚 / 小 {currentApp.shippingInfo.boxSizeSmall}枚</p>
-                      <p><strong>キット配送希望日:</strong> {currentApp.shippingInfo.kitDeliveryDate}</p>
-                      {currentApp.shippingInfo.kitSentDate && (
-                        <p><strong>✅ キット発送日:</strong> {currentApp.shippingInfo.kitSentDate}</p>
-                      )}
-                    </>
-                  )}
-                  
-                  {currentApp.shippingInfo.shippingMethod === 'own' && (
-                    <>
-                      <p><strong>集荷希望日:</strong> {currentApp.shippingInfo.pickupDate}</p>
-                      <p><strong>集荷希望時間:</strong> {currentApp.shippingInfo.pickupTime}</p>
-                    </>
-                  )}
+                  <p><strong>発送方法:</strong> {currentApp.shippingInfo.shippingMethod === 'customer' || currentApp.shippingInfo.shippingMethod === 'own' ? '📦 お客様自身での発送' : '🚚 着払い（ヤマト運輸指定）'}</p>
                   
                   {currentApp.shippingInfo.receivedDate && (
                     <p><strong>✅ 商品到着日:</strong> {currentApp.shippingInfo.receivedDate}</p>
@@ -925,29 +1048,7 @@ const Rating = () => {
                 </div>
 
                 <div className="shipping-actions">
-                  {currentApp.status === 'applied' && currentApp.shippingInfo.shippingMethod === 'kit' && (
-                    <>
-                      <div className="form-group">
-                        <label>📅 キット発送日</label>
-                        <input
-                          type="date"
-                          id="kitSentDate"
-                          defaultValue={getTodayJST()}
-                        />
-                      </div>
-                      <button onClick={() => {
-                        const date = document.getElementById('kitSentDate').value;
-                        updateStatus('kit_sent', {
-                          shippingInfo: { ...currentApp.shippingInfo, kitSentDate: date }
-                        });
-                        alert('キット発送済みに更新しました');
-                      }} className="action-btn btn-primary">
-                        📮 キット発送済みにする
-                      </button>
-                    </>
-                  )}
-                  
-                  {(currentApp.status === 'kit_sent' || currentApp.status === 'pickup_scheduled') && (
+                  {(currentApp.status === 'applied' || currentApp.status === 'kit_sent' || currentApp.status === 'pickup_scheduled') && !currentApp.shippingInfo.receivedDate && (
                     <>
                       <div className="form-group">
                         <label>📅 商品到着日</label>
@@ -959,20 +1060,14 @@ const Rating = () => {
                       </div>
                       <button onClick={() => {
                         const date = document.getElementById('receivedDate').value;
-                        updateStatus('received', {
+                        updateStatus('assessing', {
                           shippingInfo: { ...currentApp.shippingInfo, receivedDate: date }
                         });
-                        alert('商品到着を記録しました');
+                        alert('商品到着を記録しました。査定を開始してください。');
                       }} className="action-btn btn-success">
                         📦 商品到着を記録
                       </button>
                     </>
-                  )}
-                  
-                  {currentApp.status === 'received' && (
-                    <button onClick={handleStartAssessing} className="action-btn btn-info">
-                      🔍 査定を開始
-                    </button>
                   )}
                 </div>
               </div>
@@ -989,12 +1084,12 @@ const Rating = () => {
             )}
 
             {/* 査定商品リスト */}
-            {(currentApp.status === 'assessing' || currentApp.status === 'awaiting_approval' || currentApp.status === 'approved' || currentApp.status === 'auto_approved') && (
+            {(currentApp.status === 'assessing' || currentApp.status === 'awaiting_approval' || currentApp.status === 'approved' || currentApp.status === 'auto_approved' || currentApp.status === 'in_inventory') && (
               <>
                 <div className="detail-section">
                   <div className="section-header">
                     <h2>🎮 査定商品リスト</h2>
-                    {currentApp.type === 'simple' && (
+                    {currentApp.type === 'simple' && !['approved', 'auto_approved', 'in_inventory'].includes(currentApp.status) && (
                       <button 
                         onClick={() => setShowAddItem(!showAddItem)} 
                         className="add-item-toggle-btn"
@@ -1098,6 +1193,7 @@ const Rating = () => {
                       <table className="rating-table">
                         <thead>
                           <tr>
+                            {currentApp.status === 'in_inventory' && <th>管理番号</th>}
                             <th>商品タイプ</th>
                             <th>メーカー・機種</th>
                             <th>状態</th>
@@ -1106,66 +1202,152 @@ const Rating = () => {
                             <th>査定ランク</th>
                             <th>買取単価</th>
                             <th>小計</th>
-                            <th>操作</th>
+                            <th>備考</th>
+                            {!['approved', 'auto_approved', 'in_inventory'].includes(currentApp.status) && <th>操作</th>}
                           </tr>
                         </thead>
                         <tbody>
                           {currentApp.items.map(item => (
-                            <tr key={item.id}>
-                              <td>{item.productTypeLabel || item.productType}</td>
-                              <td>
-                                {item.productType === 'software' ? (
-                                  <>
-                                    <strong>{item.softwareName}</strong>
-                                    <br />
-                                    <small style={{color: '#95a5a6'}}>{item.manufacturerLabel} - {item.consoleLabel}</small>
-                                  </>
-                                ) : (
-                                  `${item.manufacturerLabel} - ${item.consoleLabel}`
+                            <React.Fragment key={item.id}>
+                              <tr className={item.assessedRank === 'C' && (!item.itemNotes || item.itemNotes.trim() === '') ? 'needs-notes' : ''}>
+                                {currentApp.status === 'in_inventory' && (
+                                  <td className="management-number-cell">
+                                    {item.managementNumbers && item.managementNumbers.length > 0 ? (
+                                      <span className="management-number-display">
+                                        {(() => {
+                                          const first = item.managementNumbers[0];
+                                          const last = item.managementNumbers[item.managementNumbers.length - 1];
+                                          const firstSeq = first.split('_').pop();
+                                          const lastSeq = last.split('_').pop();
+                                          const baseNumber = first.substring(0, first.lastIndexOf('_') + 1);
+                                          
+                                          if (item.managementNumbers.length === 1) {
+                                            return first;
+                                          } else {
+                                            return `${baseNumber}${firstSeq}~${lastSeq}`;
+                                          }
+                                        })()}
+                                      </span>
+                                    ) : (
+                                      <span className="no-management-number">-</span>
+                                    )}
+                                  </td>
                                 )}
-                              </td>
-                              <td>{item.conditionLabel}</td>
-                              <td className="accessories-cell">{item.productType === 'console' ? getShortAccessoriesLabel(item.accessories) : '-'}</td>
-                              <td>{item.quantity}</td>
-                              <td>
-                                <select
-                                  value={item.assessedRank || ''}
-                                  onChange={(e) => handleRankChange(item.id, e.target.value)}
-                                  className="rank-select"
-                                >
-                                  <option value="">選択</option>
-                                  <option value="S">S</option>
-                                  <option value="A">A</option>
-                                  <option value="B">B</option>
-                                  <option value="C">C</option>
-                                </select>
-                              </td>
-                              <td>
-                                <input
-                                  type="number"
-                                  value={item.buybackPrice || ''}
-                                  onChange={(e) => handlePriceChange(item.id, e.target.value)}
-                                  className="price-input"
-                                  step="100"
-                                  placeholder="0"
-                                />
-                              </td>
-                              <td className="subtotal">¥{((item.buybackPrice || 0) * item.quantity).toLocaleString()}</td>
-                              <td>
-                                {item.quantity > 1 && currentApp.status === 'assessing' && (
-                                  <button 
-                                    onClick={() => handleSplitItem(item.id)} 
-                                    className="split-btn"
-                                    title="1台ずつに分割して個別に査定"
-                                  >
-                                    🔀 分割
-                                  </button>
+                                <td>{item.productTypeLabel || item.productType}</td>
+                                <td>
+                                  {item.productType === 'software' ? (
+                                    <>
+                                      <strong>{item.softwareName}</strong>
+                                      <br />
+                                      <small style={{color: '#95a5a6'}}>{item.manufacturerLabel} - {item.consoleLabel}</small>
+                                    </>
+                                  ) : (
+                                    `${item.manufacturerLabel} - ${item.consoleLabel}`
+                                  )}
+                                </td>
+                                <td>{item.conditionLabel}</td>
+                                <td className="accessories-cell">{item.productType === 'console' ? getShortAccessoriesLabel(item.accessories) : '-'}</td>
+                                <td>{item.quantity}</td>
+                                <td>
+                                  {['approved', 'auto_approved', 'in_inventory'].includes(currentApp.status) ? (
+                                    item.assessedRank || '-'
+                                  ) : (
+                                    <select
+                                      value={item.assessedRank || ''}
+                                      onChange={(e) => handleRankChange(item.id, e.target.value)}
+                                      className="rank-select"
+                                    >
+                                      <option value="">選択</option>
+                                      <option value="S">S</option>
+                                      <option value="A">A</option>
+                                      <option value="B">B</option>
+                                      <option value="C">C</option>
+                                    </select>
+                                  )}
+                                </td>
+                                <td>
+                                  {['approved', 'auto_approved', 'in_inventory'].includes(currentApp.status) ? (
+                                    `¥${(item.buybackPrice || 0).toLocaleString()}`
+                                  ) : (
+                                    <input
+                                      type="number"
+                                      value={item.buybackPrice || ''}
+                                      onChange={(e) => handlePriceChange(item.id, e.target.value)}
+                                      className="price-input"
+                                      step="100"
+                                      placeholder="0"
+                                    />
+                                  )}
+                                </td>
+                                <td className="subtotal">¥{((item.buybackPrice || 0) * item.quantity).toLocaleString()}</td>
+                                <td className="notes-cell-action">
+                                  {['approved', 'auto_approved', 'in_inventory'].includes(currentApp.status) ? (
+                                    item.itemNotes ? '📝' : '-'
+                                  ) : (
+                                    <button 
+                                      className="toggle-notes-btn"
+                                      onClick={() => setShowNotesFor({...showNotesFor, [item.id]: !showNotesFor[item.id]})}
+                                      title={showNotesFor[item.id] ? "備考を閉じる" : "備考を追加"}
+                                    >
+                                      {showNotesFor[item.id] ? '➖' : '➕'}
+                                    </button>
+                                  )}
+                                </td>
+                                {!['approved', 'auto_approved', 'in_inventory'].includes(currentApp.status) && (
+                                  <td>
+                                    {item.quantity > 1 && currentApp.status === 'assessing' && (
+                                      <button 
+                                        onClick={() => handleSplitItem(item.id)} 
+                                        className="split-btn"
+                                        title="1台ずつに分割して個別に査定"
+                                      >
+                                        🔀 分割
+                                      </button>
+                                    )}
+                                    {currentApp.type === 'simple' && (
+                                      <button onClick={() => handleRemoveItem(item.id)} className="delete-btn">削除</button>
+                                    )}
+                                  </td>
                                 )}
-                                {currentApp.type === 'simple' && (
-                                  <button onClick={() => handleRemoveItem(item.id)} className="delete-btn">削除</button>
-                                )}
-                              </td>
-                            </tr>
+                              </tr>
+                              {/* C評価の場合、お客様が入力した状態詳細を追加行で表示 */}
+                              {item.condition === 'C' && item.conditionNotes && (
+                                <tr className="condition-detail-row">
+                                  <td colSpan={currentApp.status === 'in_inventory' ? '11' : '10'} className="condition-detail-cell">
+                                    <div className="condition-detail-content">
+                                      <strong>状態詳細（お客様記入）：</strong> {item.conditionNotes}
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                              {/* 備考欄を追加している場合の入力行 */}
+                              {showNotesFor[item.id] && !['approved', 'auto_approved', 'in_inventory'].includes(currentApp.status) && (
+                                <tr className="notes-detail-row">
+                                  <td colSpan="10" className="notes-detail-cell">
+                                    <div className="notes-detail-content">
+                                      <label><strong>📝 備考：</strong></label>
+                                      <input
+                                        type="text"
+                                        value={item.itemNotes || ''}
+                                        onChange={(e) => handleNotesChange(item.id, e.target.value)}
+                                        className="notes-input-expanded"
+                                        placeholder="備考を入力してください"
+                                      />
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                              {/* 買取確定後・在庫登録済の場合で備考がある場合 */}
+                              {['approved', 'auto_approved', 'in_inventory'].includes(currentApp.status) && item.itemNotes && (
+                                <tr className="notes-detail-row">
+                                  <td colSpan={currentApp.status === 'in_inventory' ? '11' : '10'} className="notes-detail-cell">
+                                    <div className="notes-detail-content">
+                                      <strong>備考：</strong> {item.itemNotes}
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
                           ))}
                         </tbody>
                       </table>
@@ -1189,12 +1371,6 @@ const Rating = () => {
             )}
 
 
-            {/* 在庫登録完了メッセージ */}
-            {currentApp.status === 'in_inventory' && (
-              <div className="completed-message">
-                <p>✅ 在庫登録が完了しました。見積書を印刷できます。</p>
-              </div>
-            )}
 
             {/* 担当者表示（査定完了後） */}
             {currentApp.assessorName && (currentApp.status === 'awaiting_approval' || currentApp.status === 'approved' || currentApp.status === 'auto_approved' || currentApp.status === 'in_inventory') && (
@@ -1248,7 +1424,7 @@ const Rating = () => {
                   <div className="info-message">
                     <p>💡 買取が確定しました。顧客へ振込手続きについて連絡し、振込完了後に在庫登録してください。</p>
                   </div>
-                  <button className="confirm-button" onClick={handleAddToInventory}>
+                  <button className="confirm-button" onClick={handleOpenInventoryModal}>
                     📊 在庫に登録する
                   </button>
                 </>
@@ -1257,16 +1433,117 @@ const Rating = () => {
               {currentApp.status === 'in_inventory' && (
                 <button className="print-button" onClick={handlePrint}>🖨️ 見積書印刷</button>
               )}
-              
-              {!['assessing', 'awaiting_approval', 'approved', 'auto_approved', 'in_inventory'].includes(currentApp.status) && (
-                <button className="print-button" onClick={handlePrint}>🖨️ 見積書印刷</button>
-              )}
             </div>
         </div>
       </div>
       </>
       )}
     </div>
+
+      {/* 在庫登録確認モーダル */}
+      {showInventoryModal && currentApp && (
+        <div className="modal-overlay" onClick={() => setShowInventoryModal(false)}>
+          <div className="inventory-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>📦 在庫登録の確認</h2>
+              <button className="modal-close-btn" onClick={() => setShowInventoryModal(false)}>×</button>
+            </div>
+            
+            <div className="modal-body">
+              <p className="modal-intro">以下の商品を在庫に登録します。管理番号を確認してください。</p>
+              
+              <div className="inventory-items-list">
+                {currentApp.items.map((item, index) => {
+                  const numbers = generatedManagementNumbers[item.id] || [];
+                  const isEditing = editingManagementNumbers[item.id];
+                  const first = numbers[0];
+                  const last = numbers[numbers.length - 1];
+                  const displayNumber = numbers.length === 1 
+                    ? first 
+                    : `${first?.substring(0, first.lastIndexOf('_') + 1)}${first?.split('_').pop()}~${last?.split('_').pop()}`;
+                  
+                  return (
+                    <div key={item.id} className="inventory-item-card">
+                      <div className="item-info">
+                        <span className="item-number">#{index + 1}</span>
+                        <div className="item-details">
+                          <strong>
+                            {item.productType === 'software' ? item.softwareName : `${item.manufacturerLabel} - ${item.consoleLabel}`}
+                          </strong>
+                          <div className="item-meta">
+                            数量: {item.quantity}点 / ランク: {item.assessedRank} / 単価: ¥{(item.buybackPrice || 0).toLocaleString()}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {!isEditing ? (
+                        <div className="management-number-display-modal">
+                          <div className="management-label">管理番号:</div>
+                          <div className="management-value">{displayNumber}</div>
+                          <div className="management-count">({numbers.length}点)</div>
+                          <button 
+                            className="edit-management-btn"
+                            onClick={() => handleStartEditManagementNumber(item.id)}
+                            title="管理番号を編集"
+                          >
+                            ✏️ 編集
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="management-number-edit-modal">
+                          <div className="management-label">管理番号を編集:</div>
+                          <div className="management-inputs-list">
+                            {numbers.map((number, idx) => (
+                              <div key={idx} className="management-input-row">
+                                <span className="input-index">{idx + 1}.</span>
+                                <input
+                                  type="text"
+                                  value={number}
+                                  onChange={(e) => handleUpdateSingleManagementNumber(item.id, idx, e.target.value)}
+                                  className="management-input"
+                                  placeholder="管理番号を入力"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                          <div className="edit-actions">
+                            <button 
+                              className="btn-save-edit"
+                              onClick={() => handleSaveManagementNumber(item.id)}
+                            >
+                              ✓ 保存
+                            </button>
+                            <button 
+                              className="btn-cancel-edit"
+                              onClick={() => handleCancelEditManagementNumber(item.id)}
+                            >
+                              ✕ キャンセル
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              
+              <div className="modal-total">
+                <span>合計:</span>
+                <strong>{currentApp.items.reduce((sum, item) => sum + item.quantity, 0)}点</strong>
+              </div>
+            </div>
+            
+            <div className="modal-footer">
+              <button className="btn-cancel" onClick={() => setShowInventoryModal(false)}>
+                キャンセル
+              </button>
+              <button className="btn-confirm" onClick={handleConfirmAddToInventory}>
+                ✓ 登録実行
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

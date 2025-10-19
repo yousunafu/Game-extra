@@ -317,7 +317,7 @@ const Register = () => {
           
           <div className="login-link" style={{ marginTop: '10px' }}>
             <p>For overseas buyers (Purchase games)</p>
-            <Link to="/register/buyer">Register here</Link>
+            <Link to="/intl/portal/register">Register here</Link>
           </div>
         </form>
       </div>

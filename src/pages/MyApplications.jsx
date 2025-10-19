@@ -96,9 +96,7 @@ const MyApplications = () => {
   const calculateTotal = (items, shippingInfo) => {
     if (!items) return 0;
     const itemsTotal = items.reduce((sum, item) => sum + (item.buybackPrice || 0) * item.quantity, 0);
-    // 自分で箱を用意する場合は500円加算
-    const shippingBonus = (shippingInfo && shippingInfo.shippingMethod === 'own') ? 500 : 0;
-    return itemsTotal + shippingBonus;
+    return itemsTotal;
   };
 
   // 見積書印刷
@@ -236,16 +234,6 @@ const MyApplications = () => {
           </table>
 
           <div className="estimate-total">
-            <div className="total-row">
-              <span>小計</span>
-              <span>¥{app.items.reduce((sum, item) => sum + ((item.buybackPrice || 0) * item.quantity), 0).toLocaleString()}</span>
-            </div>
-            {(app.shippingInfo && app.shippingInfo.shippingMethod === 'own') && (
-              <div className="total-row">
-                <span>🎁 自己発送ボーナス</span>
-                <span>¥500</span>
-              </div>
-            )}
             <div className="total-row grand-total">
               <span>合計買取金額</span>
               <span>¥{calculateTotal(app.items, app.shippingInfo).toLocaleString()}</span>
@@ -318,9 +306,9 @@ const MyApplications = () => {
                 <div className="card-section">
                 <h4>📦 発送方法</h4>
                 <p>
-                  {app.shippingInfo.shippingMethod === 'kit' 
-                    ? `📮 無料宅配キット（大${app.shippingInfo.boxSizeLarge}枚 / 小${app.shippingInfo.boxSizeSmall}枚）` 
-                    : '📦 自分で用意（査定額+500円）'
+                  {app.shippingInfo.shippingMethod === 'cashOnDelivery' 
+                    ? '🚚 着払い（ヤマト運輸指定）' 
+                    : '📦 お客様自身での発送'
                   }
                 </p>
               </div>

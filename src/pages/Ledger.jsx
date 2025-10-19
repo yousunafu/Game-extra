@@ -4,14 +4,142 @@ import './Ledger.css';
 const Ledger = () => {
   const [salesRecords, setSalesRecords] = useState([]);
   const [expandedRecord, setExpandedRecord] = useState(null);
+  const [records, setRecords] = useState([]);
 
   // 販売記録を読み込み
   useEffect(() => {
     const ledger = JSON.parse(localStorage.getItem('salesLedger') || '[]');
     setSalesRecords(ledger);
+    
+    // 古物台帳用のレコードを生成
+    loadLedgerRecords();
   }, []);
 
-  const [records] = useState([]);
+  const loadLedgerRecords = () => {
+    const allRecords = [];
+    
+    // 在庫データから買取記録を取得
+    const inventory = JSON.parse(localStorage.getItem('inventory') || '[]');
+    const allApplications = JSON.parse(localStorage.getItem('allApplications') || '[]');
+    
+    inventory.forEach(item => {
+      if (item.sourceType === 'customer' && item.applicationNumber) {
+        const app = allApplications.find(a => a.applicationNumber === item.applicationNumber);
+        if (app && app.customer) {
+          // 管理番号がある場合は各管理番号ごとに1レコード作成
+          const managementNumbers = item.managementNumbers || [];
+          if (managementNumbers.length > 0) {
+            managementNumbers.forEach(mgmtNumber => {
+              allRecords.push({
+                id: `${item.id}-${mgmtNumber}`,
+                date: new Date(item.registeredDate).toLocaleDateString('ja-JP'),
+                type: '買取',
+                sku: item.id,
+                managementNumber: mgmtNumber,
+                productName: item.productType === 'software' ? item.softwareName : `${item.manufacturerLabel} - ${item.consoleLabel}`,
+                features: `${item.colorLabel || ''} ${item.conditionLabel || ''}`.trim() || '-',
+                rank: item.assessedRank,
+                quantity: 1,
+                price: item.acquisitionPrice || item.buybackPrice,
+                customerName: app.customer.name,
+                customerAddress: `${app.customer.postalCode || ''} ${app.customer.address || ''}`.trim(),
+                customerOccupation: app.customer.occupation || '-',
+                customerAge: app.customer.birthDate ? Math.floor((new Date() - new Date(app.customer.birthDate)) / (365.25 * 24 * 60 * 60 * 1000)) : '-',
+                saleDate: '-',
+                salePrice: '-',
+                buyer: '-',
+                status: 'in-stock'
+              });
+            });
+          } else {
+            // 管理番号がない場合は従来通り
+            allRecords.push({
+              id: item.id,
+              date: new Date(item.registeredDate).toLocaleDateString('ja-JP'),
+              type: '買取',
+              sku: item.id,
+              managementNumber: '-',
+              productName: item.productType === 'software' ? item.softwareName : `${item.manufacturerLabel} - ${item.consoleLabel}`,
+              features: `${item.colorLabel || ''} ${item.conditionLabel || ''}`.trim() || '-',
+              rank: item.assessedRank,
+              quantity: item.quantity,
+              price: item.acquisitionPrice || item.buybackPrice,
+              customerName: app.customer.name,
+              customerAddress: `${app.customer.postalCode || ''} ${app.customer.address || ''}`.trim(),
+              customerOccupation: app.customer.occupation || '-',
+              customerAge: app.customer.birthDate ? Math.floor((new Date() - new Date(app.customer.birthDate)) / (365.25 * 24 * 60 * 60 * 1000)) : '-',
+              saleDate: '-',
+              salePrice: '-',
+              buyer: '-',
+              status: 'in-stock'
+            });
+          }
+        }
+      }
+    });
+    
+    // 新しい販売履歴（salesHistory）から販売記録を取得
+    const salesHistory = JSON.parse(localStorage.getItem('salesHistory') || '[]');
+    salesHistory.forEach(sale => {
+      // 管理番号がある場合は各管理番号ごとに1レコード作成
+      const managementNumbers = sale.managementNumbers || [];
+      if (managementNumbers.length > 0) {
+        managementNumbers.forEach(mgmtNumber => {
+          allRecords.push({
+            id: `${sale.id}-${mgmtNumber}`,
+            date: new Date(sale.soldAt).toLocaleDateString('ja-JP'),
+            type: '販売',
+            sku: sale.inventoryItemId,
+            managementNumber: mgmtNumber,
+            productName: sale.productType === 'software' ? sale.softwareName : `${sale.manufacturerLabel} - ${sale.consoleLabel}`,
+            features: `${sale.colorLabel || ''} ランク:${sale.assessedRank}`.trim(),
+            rank: sale.assessedRank,
+            quantity: 1,
+            price: sale.soldPrice,
+            customerName: sale.soldTo,
+            customerAddress: sale.salesChannel === 'ebay' ? 'eBay販売' : '直接販売',
+            customerOccupation: '-',
+            customerAge: '-',
+            saleDate: new Date(sale.soldAt).toLocaleDateString('ja-JP'),
+            salePrice: sale.soldPrice,
+            buyer: sale.soldTo,
+            status: 'sold'
+          });
+        });
+      } else {
+        // 管理番号がない場合は従来通り
+        allRecords.push({
+          id: sale.id,
+          date: new Date(sale.soldAt).toLocaleDateString('ja-JP'),
+          type: '販売',
+          sku: sale.inventoryItemId,
+          managementNumber: '-',
+          productName: sale.productType === 'software' ? sale.softwareName : `${sale.manufacturerLabel} - ${sale.consoleLabel}`,
+          features: `${sale.colorLabel || ''} ランク:${sale.assessedRank}`.trim(),
+          rank: sale.assessedRank,
+          quantity: sale.quantity,
+          price: sale.soldPrice,
+          customerName: sale.soldTo,
+          customerAddress: sale.salesChannel === 'ebay' ? 'eBay販売' : '直接販売',
+          customerOccupation: '-',
+          customerAge: '-',
+          saleDate: new Date(sale.soldAt).toLocaleDateString('ja-JP'),
+          salePrice: sale.soldPrice,
+          buyer: sale.soldTo,
+          status: 'sold'
+        });
+      }
+    });
+    
+    // 日付順にソート（新しい順）
+    allRecords.sort((a, b) => {
+      const dateA = new Date(a.date.split('/').reverse().join('-'));
+      const dateB = new Date(b.date.split('/').reverse().join('-'));
+      return dateB - dateA;
+    });
+    
+    setRecords(allRecords);
+  };
 
   const [filters, setFilters] = useState({
     dateFrom: '',
@@ -265,19 +393,17 @@ const Ledger = () => {
         </div>
       )}
 
-      {/* 以下のセクションは非表示 */}
-      {false && (
-        <>
-          <div className="action-buttons">
-            <div className="left-actions">
-              <button className="add-button">新規登録</button>
-              <button>インポート</button>
-            </div>
-            <div className="right-actions">
-              <button onClick={handleExportData}>エクスポート</button>
-              <button>印刷</button>
-            </div>
+      {/* 古物台帳テーブル */}
+      <div className="ledger-table-section">
+        <div className="action-buttons">
+          <div className="left-actions">
+            <span className="record-count">全{records.length}件</span>
           </div>
+          <div className="right-actions">
+            <button onClick={handleExportData}>エクスポート</button>
+            <button onClick={() => window.print()}>印刷</button>
+          </div>
+        </div>
 
           <div className="table-wrapper">
             <table className="ledger-table">
@@ -327,12 +453,13 @@ const Ledger = () => {
               </tbody>
             </table>
           </div>
-
-          <div className="load-more">
-            <button>さらに読み込む</button>
-          </div>
-        </>
-      )}
+          
+          {records.length === 0 && (
+            <div className="empty-records">
+              <p>古物台帳に記録がありません</p>
+            </div>
+          )}
+      </div>
     </div>
   );
 };

@@ -7,6 +7,64 @@
   box-shadow: 0 0 20px rgba(0,0,0,0.1);
 }
 
+/* 価格計算情報表示 */
+.price-input-with-calc {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.price-calc-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px 8px;
+  background: linear-gradient(135deg, #fff9e6 0%, #ffe8cc 100%);
+  border: 1px solid #f39c12;
+  border-radius: 4px;
+  margin-top: 5px;
+}
+
+.price-calc-info small {
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+/* 価格一括計算セクション */
+.price-auto-calc-section {
+  background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+  border: 2px solid #f39c12;
+  padding: 20px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.btn-auto-calc-price {
+  background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+  color: white;
+  padding: 12px 30px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-auto-calc-price:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(243, 156, 18, 0.4);
+}
+
+.auto-calc-hint {
+  display: block;
+  margin-top: 10px;
+  color: #856404;
+  font-size: 13px;
+  font-style: italic;
+}
+
 .sales-container h1 {
   color: #2c3e50;
   margin-bottom: 10px;
@@ -23,6 +81,9 @@
   grid-template-columns: 1fr 1fr;
   gap: 30px;
   margin-top: 50px;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .sales-container .selection-btn {
@@ -1499,4 +1560,140 @@
 
 .sales-shipping-section-bottom .sales-collapsible-header:hover {
   background-color: #bbdefb;
+}
+
+/* 管理番号表示ボタン */
+.btn-show-management-numbers {
+  background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  white-space: nowrap;
+  margin-left: 10px;
+}
+
+.btn-show-management-numbers:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(155, 89, 182, 0.3);
+}
+
+/* 管理番号モーダル */
+.management-number-modal {
+  background: white;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 700px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
+
+.management-number-modal .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 25px;
+  border-bottom: 2px solid #e9ecef;
+  background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+  border-radius: 12px 12px 0 0;
+}
+
+.management-number-modal .modal-header h2 {
+  margin: 0;
+  color: white;
+  font-size: 20px;
+}
+
+.management-number-modal .modal-body {
+  padding: 25px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.modal-item-info {
+  background: #f8f9fa;
+  border-left: 4px solid #9b59b6;
+  padding: 15px;
+  margin-bottom: 20px;
+  border-radius: 6px;
+}
+
+.modal-item-info p {
+  margin: 8px 0;
+  font-size: 14px;
+}
+
+.management-numbers-list-modal h3 {
+  color: #2c3e50;
+  font-size: 16px;
+  margin-bottom: 15px;
+}
+
+.management-numbers-grid-modal {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px;
+}
+
+.management-number-item-modal {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+  border: 1px solid #3498db;
+  border-radius: 6px;
+  font-family: 'Courier New', monospace;
+}
+
+.number-index-modal {
+  font-size: 12px;
+  font-weight: bold;
+  color: #1976d2;
+  min-width: 25px;
+}
+
+.number-value-modal {
+  font-size: 12px;
+  font-weight: bold;
+  color: #0d47a1;
+  flex: 1;
+}
+
+.no-numbers {
+  text-align: center;
+  color: #7f8c8d;
+  padding: 20px;
+}
+
+.management-number-modal .modal-footer {
+  display: flex;
+  justify-content: center;
+  padding: 20px 25px;
+  border-top: 2px solid #e9ecef;
+  background: #f8f9fa;
+  border-radius: 0 0 12px 12px;
+}
+
+.btn-close-modal {
+  background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
+  color: white;
+  border: none;
+  padding: 12px 30px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-close-modal:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(127, 140, 141, 0.3);
 }

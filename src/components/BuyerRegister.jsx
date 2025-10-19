@@ -241,7 +241,7 @@ const BuyerRegister = () => {
 
           <div className="login-link">
             <p>Already have an account?</p>
-            <Link to="/login">Login here</Link>
+            <Link to="/intl/portal/auth">Login here</Link>
           </div>
           
           <div className="login-link" style={{ marginTop: '10px' }}>

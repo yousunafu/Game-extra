@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { manufacturers, gameConsoles, colors } from '../data/gameConsoles';
+import { manufacturers, colors } from '../data/gameConsoles';
+import { getAllConsoles } from '../utils/productMaster';
+import { generateProductCode } from '../utils/productCodeGenerator';
+import { calculateBuyerPrice } from '../utils/priceCalculator';
 import './Sales.css';
 
 // 担当者リスト（Rating.jsxと同じ）
@@ -40,6 +43,14 @@ const Sales = () => {
   // 在庫選択機能
   const [showInventorySelection, setShowInventorySelection] = useState(false);
   const [selectedInventories, setSelectedInventories] = useState({}); // { itemId: [{ invId, quantity }] }
+  
+  // 管理番号モーダル
+  const [showManagementNumberModal, setShowManagementNumberModal] = useState(false);
+  const [currentManagementNumbers, setCurrentManagementNumbers] = useState([]);
+  const [currentItemInfo, setCurrentItemInfo] = useState(null);
+  
+  // 価格計算情報の表示
+  const [priceCalculations, setPriceCalculations] = useState({}); // { itemId: { basePrice, adjustment, finalPrice } }
 
   // 為替レート（USD to JPY）
   const EXCHANGE_RATE = 150; // $1 = ¥150
@@ -125,6 +136,11 @@ const Sales = () => {
       } else {
         setSalesStaffName('');
       }
+      
+      // 見積もり中（pending）の場合は価格を自動計算
+      if (currentReq.status === 'pending') {
+        calculateAllPrices();
+      }
     }
   }, [selectedRequestNumber, currentReq?.requestNumber]);
 
@@ -174,6 +190,25 @@ const Sales = () => {
   const getSelectedQuantity = (itemId) => {
     if (!selectedInventories[itemId]) return 0;
     return selectedInventories[itemId].reduce((sum, sel) => sum + sel.quantity, 0);
+  };
+
+  // 管理番号を表示
+  const handleShowManagementNumbers = (inv, selectedQuantity, itemInfo) => {
+    if (!inv.managementNumbers || inv.managementNumbers.length === 0) {
+      alert('この在庫には管理番号が登録されていません');
+      return;
+    }
+    
+    // 選択された数量分の管理番号を取得
+    const numbers = inv.managementNumbers.slice(0, selectedQuantity);
+    setCurrentManagementNumbers(numbers);
+    setCurrentItemInfo({
+      ...itemInfo,
+      selectedQuantity: selectedQuantity,
+      totalStock: inv.quantity,
+      rank: inv.assessedRank
+    });
+    setShowManagementNumberModal(true);
   };
 
   // 在庫選択を追加
@@ -260,6 +295,56 @@ const Sales = () => {
       }
       return req;
     });
+    setRequests(updatedRequests);
+    localStorage.setItem('salesRequests', JSON.stringify(updatedRequests));
+  };
+
+  // 商品の価格を自動計算（バイヤー別価格調整適用）
+  const calculateItemPrice = (item, buyerEmail) => {
+    // 在庫から該当商品を探してランクを取得
+    const inventoryData = JSON.parse(localStorage.getItem('inventory') || '[]');
+    const matchingInventory = inventoryData.find(inv => 
+      inv.console === item.console &&
+      (!item.color || inv.color === item.color)
+    );
+    
+    if (!matchingInventory) {
+      return null; // 在庫なし
+    }
+    
+    const rank = matchingInventory.assessedRank || 'A';
+    const productCode = generateProductCode(item.manufacturer, item.console, item.productType);
+    
+    return calculateBuyerPrice(productCode, rank, buyerEmail);
+  };
+
+  // 全商品の価格を一括計算
+  const calculateAllPrices = () => {
+    if (!currentReq || !currentReq.customer) return;
+    
+    const calculations = {};
+    const updatedItems = currentReq.items.map(item => {
+      const calc = calculateItemPrice(item, currentReq.customer.email);
+      
+      if (calc && calc.finalPrice > 0) {
+        calculations[item.id] = calc;
+        // 価格が未設定の場合のみ自動設定
+        if (!item.quotedPrice || item.quotedPrice === 0) {
+          return { ...item, quotedPrice: calc.finalPrice };
+        }
+      }
+      
+      return item;
+    });
+    
+    setPriceCalculations(calculations);
+    
+    // リクエストを更新
+    const updatedRequests = requests.map(req => 
+      req.requestNumber === selectedRequestNumber
+        ? { ...req, items: updatedItems }
+        : req
+    );
     setRequests(updatedRequests);
     localStorage.setItem('salesRequests', JSON.stringify(updatedRequests));
   };
@@ -852,7 +937,7 @@ const Sales = () => {
                           </td>
                           <td>
                             {currentReq.status === 'pending' ? (
-                              <div>
+                              <div className="price-input-with-calc">
                               <input
                                 type="number"
                                 value={item.quotedPrice || ''}
@@ -861,6 +946,18 @@ const Sales = () => {
                                   step="100"
                                 placeholder="0"
                               />
+                                {priceCalculations[item.id] && (
+                                  <div className="price-calc-info">
+                                    <small style={{color: '#7f8c8d'}}>
+                                      基準: ¥{priceCalculations[item.id].basePrice.toLocaleString()}
+                                    </small>
+                                    {priceCalculations[item.id].adjustment && (
+                                      <small style={{color: '#f39c12', fontWeight: 'bold'}}>
+                                        調整: {priceCalculations[item.id].adjustmentDetails}
+                                      </small>
+                                    )}
+                                  </div>
+                                )}
                                 <small style={{display: 'block', color: '#7f8c8d', marginTop: '4px'}}>
                                   {item.quotedPrice ? `($${convertToUSD(item.quotedPrice).toFixed(2)})` : ''}
                                 </small>
@@ -960,6 +1057,21 @@ const Sales = () => {
                                       className="quantity-input"
                                     />
                                     <span>/ {inv.quantity}台</span>
+                                    {selectedFromThis > 0 && (
+                                      <button
+                                        className="btn-show-management-numbers"
+                                        onClick={() => handleShowManagementNumbers(inv, selectedFromThis, {
+                                          productName: item.productType === 'software' 
+                                            ? `${item.softwareName} (${item.consoleLabel})` 
+                                            : `${item.consoleLabel}${item.colorLabel ? ' - ' + item.colorLabel : ''}`,
+                                          sourceName: inv.sourceType === 'customer' 
+                                            ? inv.customer?.name || '不明'
+                                            : inv.supplier?.name || '不明'
+                                        })}
+                                      >
+                                        🏷️ 管理番号
+                                      </button>
+                                    )}
                                   </div>
                                 </div>
                               );
@@ -1012,6 +1124,16 @@ const Sales = () => {
 
               {/* 送料と配送期間の入力欄 */}
               {currentReq.status === 'pending' && (
+                <>
+                <div className="price-auto-calc-section">
+                  <button className="btn-auto-calc-price" onClick={calculateAllPrices}>
+                    💰 バイヤー別価格を一括計算
+                  </button>
+                  <small className="auto-calc-hint">
+                    基準価格とバイヤー別調整を適用して、全商品の価格を自動計算します
+                  </small>
+                </div>
+                
                 <div className="sales-shipping-quote-section">
                   <div className="sales-quote-row">
                     <div className="sales-quote-item">
@@ -1045,6 +1167,7 @@ const Sales = () => {
                     </div>
                   </div>
                 </div>
+                </>
               )}
 
               {/* 合計カード（小計 + 送料 = 合計）- 入金確認済み時は非表示 */}
@@ -1236,6 +1359,51 @@ const Sales = () => {
             )}
           </div>
         </div>
+
+        {/* 管理番号表示モーダル */}
+        {showManagementNumberModal && (
+          <div className="modal-overlay" onClick={() => setShowManagementNumberModal(false)}>
+            <div className="management-number-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h2>🏷️ 出荷される管理番号</h2>
+                <button className="modal-close-btn" onClick={() => setShowManagementNumberModal(false)}>×</button>
+              </div>
+              
+              <div className="modal-body">
+                {currentItemInfo && (
+                  <div className="modal-item-info">
+                    <p><strong>商品名:</strong> {currentItemInfo.productName}</p>
+                    <p><strong>仕入れ元:</strong> {currentItemInfo.sourceName}</p>
+                    <p><strong>ランク:</strong> <span className={`rank-badge rank-${currentItemInfo.rank.toLowerCase()}`}>{currentItemInfo.rank}</span></p>
+                    <p><strong>出荷数:</strong> {currentItemInfo.selectedQuantity}個（在庫: {currentItemInfo.totalStock}個）</p>
+                  </div>
+                )}
+                
+                <div className="management-numbers-list-modal">
+                  <h3>管理番号一覧 ({currentManagementNumbers.length}個)</h3>
+                  {currentManagementNumbers.length > 0 ? (
+                    <div className="management-numbers-grid-modal">
+                      {currentManagementNumbers.map((number, idx) => (
+                        <div key={idx} className="management-number-item-modal">
+                          <span className="number-index-modal">{idx + 1}.</span>
+                          <span className="number-value-modal">{number}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="no-numbers">管理番号が登録されていません</p>
+                  )}
+                </div>
+              </div>
+              
+              <div className="modal-footer">
+                <button className="btn-close-modal" onClick={() => setShowManagementNumberModal(false)}>
+                  閉じる
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 印刷用テンプレート */}
         <div className="print-only estimate-sheet">

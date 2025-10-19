@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { manufacturers, gameConsoles, colors, conditions, accessories } from '../data/gameConsoles';
+import { manufacturers, colors, conditions, accessories } from '../data/gameConsoles';
+import { getAllConsoles } from '../utils/productMaster';
+import { generateManagementNumber } from '../utils/productCodeGenerator';
 import './BuybackApplication.css';
 
 const BuybackApplication = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [step, setStep] = useState(1); // 1: 発送方法, 2: 商品登録
   const [items, setItems] = useState([]);
   const [currentItem, setCurrentItem] = useState({
     productType: 'console', // 'console' or 'software'
@@ -16,20 +17,23 @@ const BuybackApplication = () => {
     color: '', // カラー（任意）
     softwareName: '',
     condition: '',
+    conditionNotes: '', // C評価時の詳細備考
     accessories: '',
-    quantity: 1
+    quantity: 1,
+    managementNumbers: [] // 管理番号（数量分の配列）
   });
   const [showConfirm, setShowConfirm] = useState(false);
   const [availableConsoles, setAvailableConsoles] = useState([]);
+  const [allGameConsoles, setAllGameConsoles] = useState({});
+
+  // コンポーネント初期化時に全機種を読み込み
+  useEffect(() => {
+    setAllGameConsoles(getAllConsoles());
+  }, []);
   
   // 発送方法
   const [shippingInfo, setShippingInfo] = useState({
-    shippingMethod: 'kit', // 'kit' or 'own'
-    boxSizeLarge: 0,
-    boxSizeSmall: 0,
-    kitDeliveryDate: '',
-    pickupDate: '',
-    pickupTime: ''
+    shippingMethod: 'customer' // 'customer'(お客様負担) or 'cashOnDelivery'(着払い)
   });
 
   // メーカー選択時に機種リストを更新
@@ -37,20 +41,81 @@ const BuybackApplication = () => {
     setCurrentItem({
       ...currentItem,
       manufacturer: manufacturerValue,
-      console: '' // 機種選択をリセット
+      console: '', // 機種選択をリセット
+      managementNumbers: [] // 管理番号もリセット
     });
     
-    if (manufacturerValue && gameConsoles[manufacturerValue]) {
-      setAvailableConsoles(gameConsoles[manufacturerValue]);
+    if (manufacturerValue && allGameConsoles[manufacturerValue]) {
+      setAvailableConsoles(allGameConsoles[manufacturerValue]);
     } else {
       setAvailableConsoles([]);
     }
+  };
+
+  // 機種選択時と数量変更時に管理番号を自動生成
+  const handleConsoleChange = (consoleValue) => {
+    setCurrentItem({
+      ...currentItem,
+      console: consoleValue
+    });
+
+    // 機種が選択されたら数量分の管理番号を自動生成
+    if (currentItem.manufacturer && consoleValue && user) {
+      generateManagementNumbersForCurrentItem(consoleValue, currentItem.quantity);
+    }
+  };
+
+  // 数量変更時も管理番号を再生成
+  const handleQuantityChange = (newQuantity) => {
+    setCurrentItem({
+      ...currentItem,
+      quantity: newQuantity
+    });
+
+    // 機種が選択済みなら管理番号を再生成
+    if (currentItem.manufacturer && currentItem.console && user) {
+      generateManagementNumbersForCurrentItem(currentItem.console, newQuantity);
+    }
+  };
+
+  // 数量分の管理番号を生成するヘルパー関数
+  const generateManagementNumbersForCurrentItem = (consoleValue, quantity) => {
+    const managementNumbers = [];
+    // 同じ商品（メーカー + 機種）のアイテムの総数量を計算
+    // 商品が違えば01から始まる
+    const sameProductCount = items
+      .filter(item => item.manufacturer === currentItem.manufacturer && item.console === consoleValue)
+      .reduce((total, item) => total + parseInt(item.quantity), 0);
+    
+    for (let i = 0; i < quantity; i++) {
+      const sequenceNumber = sameProductCount + i + 1;
+      const managementNumber = generateManagementNumber(
+        user.name,
+        currentItem.manufacturer,
+        consoleValue,
+        sequenceNumber,
+        currentItem.productType
+      );
+      managementNumbers.push(managementNumber);
+    }
+
+    setCurrentItem(prev => ({
+      ...prev,
+      console: consoleValue,
+      managementNumbers: managementNumbers
+    }));
   };
 
   const handleAddItem = () => {
     // バリデーション
     if (!currentItem.manufacturer || !currentItem.console || !currentItem.condition) {
       alert('必須項目を入力してください');
+      return;
+    }
+
+    // C評価の場合は備考必須
+    if (currentItem.condition === 'C' && (!currentItem.conditionNotes || currentItem.conditionNotes.trim() === '')) {
+      alert('C評価の場合は、状態の詳細を備考欄に記入してください');
       return;
     }
 
@@ -91,8 +156,10 @@ const BuybackApplication = () => {
       color: '',
       softwareName: '',
       condition: '',
+      conditionNotes: '',
       accessories: '',
-      quantity: 1
+      quantity: 1,
+      managementNumbers: []
     });
     setAvailableConsoles([]);
   };
@@ -102,7 +169,7 @@ const BuybackApplication = () => {
   };
 
   const handleSubmit = () => {
-    const status = shippingInfo.shippingMethod === 'kit' ? 'applied' : 'pickup_scheduled';
+    const status = 'applied'; // 申込済み
 
     const applicationData = {
       applicationNumber: `BUY-${Date.now()}`,
@@ -135,176 +202,71 @@ const BuybackApplication = () => {
     navigate('/');
   };
 
-  const validateShippingInfo = () => {
-    if (shippingInfo.shippingMethod === 'kit') {
-      if (shippingInfo.boxSizeLarge === 0 && shippingInfo.boxSizeSmall === 0) {
-        alert('ダンボールを少なくとも1枚以上選択してください');
-        return false;
-      }
-      if (!shippingInfo.kitDeliveryDate) {
-        alert('キット配送希望日を選択してください');
-        return false;
-      }
-    } else if (shippingInfo.shippingMethod === 'own') {
-      if (!shippingInfo.pickupDate) {
-        alert('集荷希望日を選択してください');
-        return false;
-      }
-      if (!shippingInfo.pickupTime) {
-        alert('集荷希望時間帯を選択してください');
-        return false;
-      }
-    }
-    return true;
-  };
-
-  const handleNextStep = () => {
-    if (!validateShippingInfo()) {
-      return;
-    }
-    setStep(2);
-  };
-
   const totalQuantity = items.reduce((sum, item) => sum + parseInt(item.quantity), 0);
 
   return (
     <div className="buyback-container">
       <div className="page-header-with-back">
         <h1>ゲーム機買取申込</h1>
-        {step === 2 && (
-          <button onClick={() => setStep(1)} className="back-button-header">
-            ← 発送方法に戻る
-          </button>
-        )}
       </div>
       <p className="subtitle">
-        {step === 1 && '発送方法を選択してください'}
-        {step === 2 && 'お売りいただける商品を入力してください'}
+        お売りいただける商品を入力してください
       </p>
 
-      {step === 1 && (
-        <>
-          <div className="form-section">
-            <h2>📦 発送方法の選択</h2>
-            
-            <div className="simple-form">
-              <div className="form-group-full">
-                <label className="section-label">
-                  <span className="label-icon">📦</span>
-                  <span>発送方法をお選びください *</span>
-                </label>
-                <div className="radio-group-vertical">
-                  <label className="radio-label-block">
-                    <input
-                      type="radio"
-                      value="kit"
-                      checked={shippingInfo.shippingMethod === 'kit'}
-                      onChange={(e) => setShippingInfo({...shippingInfo, shippingMethod: e.target.value})}
-                    />
-                    <div className="radio-content">
-                      <strong>📮 無料宅配キットを送ってほしい</strong>
-                      <span className="radio-desc">ダンボールと緩衝材を無料でお届けします</span>
-                    </div>
-                  </label>
-
-                  {shippingInfo.shippingMethod === 'kit' && (
-                    <div className="nested-form kit-form">
-                      <p className="nested-form-title">📏 ダンボールサイズと枚数</p>
-                      <div className="form-row">
-                        <div className="form-group">
-                          <label>🔳 大サイズ（枚数）</label>
-                          <input
-                            type="number"
-                            min="0"
-                            value={shippingInfo.boxSizeLarge}
-                            onChange={(e) => setShippingInfo({...shippingInfo, boxSizeLarge: parseInt(e.target.value) || 0})}
-                            placeholder="0"
-                          />
-                        </div>
-                        <div className="form-group">
-                          <label>🔲 小サイズ（枚数）</label>
-                          <input
-                            type="number"
-                            min="0"
-                            value={shippingInfo.boxSizeSmall}
-                            onChange={(e) => setShippingInfo({...shippingInfo, boxSizeSmall: parseInt(e.target.value) || 0})}
-                            placeholder="0"
-                          />
-                        </div>
-                      </div>
-                      <div className="form-group">
-                        <label>📅 キット配送希望日 *</label>
-                        <input
-                          type="date"
-                          value={shippingInfo.kitDeliveryDate}
-                          onChange={(e) => setShippingInfo({...shippingInfo, kitDeliveryDate: e.target.value})}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  <label className="radio-label-block">
-                    <input
-                      type="radio"
-                      value="own"
-                      checked={shippingInfo.shippingMethod === 'own'}
-                      onChange={(e) => setShippingInfo({...shippingInfo, shippingMethod: e.target.value})}
-                    />
-                    <div className="radio-content">
-                      <strong>📦 自分で箱を用意する</strong>
-                      <span className="radio-desc bonus">🎁 査定額500円アップ！</span>
-                    </div>
-                  </label>
-
-                  {shippingInfo.shippingMethod === 'own' && (
-                    <div className="nested-form own-form">
-                      <p className="nested-form-title bonus-title">🎁 500円ボーナス対象</p>
-                      <div className="form-group">
-                        <label>📅 集荷希望日 *</label>
-                        <input
-                          type="date"
-                          value={shippingInfo.pickupDate}
-                          onChange={(e) => setShippingInfo({...shippingInfo, pickupDate: e.target.value})}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label>🕐 集荷希望時間帯 *</label>
-                        <select
-                          value={shippingInfo.pickupTime}
-                          onChange={(e) => setShippingInfo({...shippingInfo, pickupTime: e.target.value})}
-                        >
-                          <option value="">選択してください</option>
-                          <option value="morning">☀️ 午前中（9-12時）</option>
-                          <option value="12-14">🕐 12-14時</option>
-                          <option value="14-16">🕑 14-16時</option>
-                          <option value="16-18">🕔 16-18時</option>
-                          <option value="18-20">🕕 18-20時</option>
-                          <option value="19-21">🌙 19-21時</option>
-                        </select>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <button onClick={handleNextStep} className="submit-button detailed-next">
-                次へ：商品登録 →
-              </button>
-            </div>
-          </div>
-        </>
-      )}
-
-      {step === 2 && (
-        <>
-          
-          <div className="form-section">
+      <div className="form-section">
         <h2>📝 商品登録</h2>
         
+        {/* STEP 1: 発送方法 */}
+        <div className="shipping-method-section-inline">
+          <div className="shipping-method-left">
+            <label className="section-label-small">
+              <span className="label-icon-small">📦</span>
+              <span>STEP 1: 発送方法 *</span>
+            </label>
+            <div className="shipping-radio-group-inline">
+              <label className="shipping-radio-option-inline">
+                <input
+                  type="radio"
+                  value="customer"
+                  checked={shippingInfo.shippingMethod === 'customer'}
+                  onChange={(e) => setShippingInfo({shippingMethod: e.target.value})}
+                />
+                <div className="shipping-option-content">
+                  <strong>📦 お客様自身での発送</strong>
+                  <span className="shipping-option-desc">お客様ご負担で発送してください</span>
+                </div>
+              </label>
+
+              <label className="shipping-radio-option-inline">
+                <input
+                  type="radio"
+                  value="cashOnDelivery"
+                  checked={shippingInfo.shippingMethod === 'cashOnDelivery'}
+                  onChange={(e) => setShippingInfo({shippingMethod: e.target.value})}
+                />
+                <div className="shipping-option-content">
+                  <strong>🚚 着払い（ヤマト運輸指定）</strong>
+                  <span className="shipping-option-desc">買取見込み金額が20万円以上の場合のみ</span>
+                </div>
+              </label>
+            </div>
+          </div>
+          <div className="shipping-method-right">
+            <div className="shipping-notice-box">
+              <p className="notice-text-small">
+                ⚠️ <strong>重要なお知らせ</strong><br />
+                買取見込み金額が<strong>20万円以上</strong>の場合は<strong>着払い（ヤマト運輸指定）</strong>で発送可能です。<br />
+                それ以外の場合は、お客様ご負担での発送となります。
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* STEP 2: 商品タイプ */}
         <div className="product-type-section detailed-section">
           <label className="section-label-small">
             <span className="label-icon-small">🎮</span>
-            <span>STEP 1: 商品タイプ *</span>
+            <span>STEP 2: 商品タイプ *</span>
           </label>
           <div className="radio-group">
             <label className="radio-label">
@@ -328,10 +290,11 @@ const BuybackApplication = () => {
           </div>
         </div>
 
+        {/* STEP 3: 商品の詳細 */}
         <div className="detailed-select-section">
           <label className="section-label-small">
             <span className="label-icon-small">🏢</span>
-            <span>STEP 2: 商品の詳細を入力してください *</span>
+            <span>STEP 3: 商品の詳細を入力してください *</span>
           </label>
           
           <div className="product-select">
@@ -352,7 +315,7 @@ const BuybackApplication = () => {
               <label>🎮 ゲーム機種 *</label>
               <select 
                 value={currentItem.console} 
-                onChange={(e) => setCurrentItem({...currentItem, console: e.target.value})}
+                onChange={(e) => handleConsoleChange(e.target.value)}
                 disabled={!currentItem.manufacturer}
               >
                 <option value="">選択してください</option>
@@ -377,37 +340,55 @@ const BuybackApplication = () => {
               </div>
             )}
 
-            <div className="form-group condition-field">
-              <label>⭐ 状態 *</label>
-              <select value={currentItem.condition} onChange={(e) => setCurrentItem({...currentItem, condition: e.target.value})}>
-                <option value="">選択してください</option>
-                {conditions.map(condition => (
-                  <option key={condition.value} value={condition.value}>{condition.label}</option>
-                ))}
-              </select>
-            </div>
-
-            {currentItem.productType === 'console' && (
-              <div className="form-group accessories-field">
-                <label>📦 付属品 *</label>
-                <select value={currentItem.accessories} onChange={(e) => setCurrentItem({...currentItem, accessories: e.target.value})}>
+            <div className="condition-accessories-quantity-row">
+              <div className="form-group condition-field">
+                <label>⭐ 状態 *</label>
+                <select value={currentItem.condition} onChange={(e) => setCurrentItem({...currentItem, condition: e.target.value})}>
                   <option value="">選択してください</option>
-                  {accessories.map(accessory => (
-                    <option key={accessory.value} value={accessory.value}>{accessory.label}</option>
+                  {conditions.map(condition => (
+                    <option key={condition.value} value={condition.value}>{condition.label}</option>
                   ))}
                 </select>
               </div>
+
+              {currentItem.productType === 'console' && (
+                <div className="form-group accessories-field">
+                  <label>📦 付属品 *</label>
+                  <select value={currentItem.accessories} onChange={(e) => setCurrentItem({...currentItem, accessories: e.target.value})}>
+                    <option value="">選択してください</option>
+                    {accessories.map(accessory => (
+                      <option key={accessory.value} value={accessory.value}>{accessory.label}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="form-group quantity-field">
+                <label>🔢 数量</label>
+                <input 
+                  type="number" 
+                  min="1" 
+                  value={currentItem.quantity}
+                  onChange={(e) => handleQuantityChange(parseInt(e.target.value) || 1)}
+                />
+              </div>
+            </div>
+
+            {currentItem.condition === 'C' && (
+              <div className="form-group-full-width condition-notes-field">
+                <label>📝 状態の詳細 * (C評価は必須)</label>
+                <textarea
+                  value={currentItem.conditionNotes}
+                  onChange={(e) => setCurrentItem({...currentItem, conditionNotes: e.target.value})}
+                  placeholder="傷の位置、汚れの程度、動作確認の結果など詳細を記入してください"
+                  rows="3"
+                  className="condition-notes-textarea"
+                />
+              </div>
             )}
 
-            <div className="form-group quantity-field">
-              <label>🔢 数量</label>
-              <input 
-                type="number" 
-                min="1" 
-                value={currentItem.quantity}
-                onChange={(e) => setCurrentItem({...currentItem, quantity: parseInt(e.target.value) || 1})}
-              />
-            </div>
+            {/* 管理番号はスタッフ側で表示するため、お客様画面では非表示 */}
+            {/* データとしては生成・保存される */}
           </div>
 
           {currentItem.productType === 'software' && (
@@ -448,6 +429,7 @@ const BuybackApplication = () => {
               <div key={item.id} className="buyback-item">
                 <div className="item-details">
                   <span className="item-type-badge">{item.productTypeLabel}</span>
+                  {/* 管理番号はお客様画面では非表示 */}
                   {item.productType === 'software' ? (
                     <>
                       <h4>{item.softwareName}</h4>
@@ -464,6 +446,11 @@ const BuybackApplication = () => {
                     {item.productType === 'console' && item.accessoriesLabel && ` / 付属品: ${item.accessoriesLabel}`}
                     {' / 数量: '}{item.quantity}点
                   </p>
+                  {item.conditionNotes && (
+                    <p className="condition-notes-display">
+                      📝 状態詳細: {item.conditionNotes}
+                    </p>
+                  )}
                 </div>
                 <button onClick={() => handleRemoveItem(item.id)} className="remove-button">削除</button>
               </div>
@@ -495,6 +482,7 @@ const BuybackApplication = () => {
                 <div className="confirm-items">
                   {items.map(item => (
                     <div key={item.id} className="confirm-item">
+                      {/* 管理番号はお客様画面では非表示 */}
                       <div className="confirm-item-main">
                         <span className="confirm-type-badge">
                           {item.productType === 'console' ? '🎮' : '💿'}
@@ -521,6 +509,11 @@ const BuybackApplication = () => {
                         <span className="confirm-condition">{item.conditionLabel}</span>
                         <span className="confirm-quantity">×{item.quantity}</span>
                       </div>
+                      {item.conditionNotes && (
+                        <div className="confirm-condition-notes">
+                          📝 {item.conditionNotes}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -535,15 +528,10 @@ const BuybackApplication = () => {
                   <h3>📦 発送方法</h3>
                   <div className="confirm-info-box">
                     <p>
-                      {shippingInfo.shippingMethod === 'kit' 
-                        ? `📮 無料宅配キット` 
-                        : '📦 自分で用意'}
+                      {shippingInfo.shippingMethod === 'customer' 
+                        ? `📦 お客様自身での発送` 
+                        : '🚚 着払い（ヤマト運輸指定）'}
                     </p>
-                    {shippingInfo.shippingMethod === 'kit' && (
-                      <p className="confirm-detail">
-                        大: {shippingInfo.boxSizeLarge}枚 / 小: {shippingInfo.boxSizeSmall}枚
-                      </p>
-                    )}
                   </div>
                 </div>
 
@@ -575,8 +563,6 @@ const BuybackApplication = () => {
             </div>
           </div>
         </div>
-      )}
-        </>
       )}
     </div>
   );

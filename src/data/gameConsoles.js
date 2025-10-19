@@ -77,8 +77,10 @@ export const colors = [
 ];
 
 export const conditions = [
-  { value: 'good', label: '良い' },
-  { value: 'bad', label: '悪い' }
+  { value: 'S', label: 'S（極美品・未使用に近い）' },
+  { value: 'A', label: 'A（美品・目立つ傷なし）' },
+  { value: 'B', label: 'B（使用感あり・通常使用可）' },
+  { value: 'C', label: 'C（傷・汚れあり・動作に問題なし）' }
 ];
 
 export const accessories = [

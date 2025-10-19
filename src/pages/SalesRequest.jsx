@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { manufacturers, gameConsoles, colors } from '../data/gameConsoles';
+import { manufacturers, colors } from '../data/gameConsoles';
+import { getAllConsoles } from '../utils/productMaster';
 import './SalesRequest.css';
 
 const SalesRequest = () => {
@@ -29,6 +30,12 @@ const SalesRequest = () => {
   const [showConfirm, setShowConfirm] = useState(false);
   const [availableConsoles, setAvailableConsoles] = useState([]);
   const [notes, setNotes] = useState('');
+  const [allGameConsoles, setAllGameConsoles] = useState({});
+
+  // コンポーネント初期化時に全機種を読み込み
+  useEffect(() => {
+    setAllGameConsoles(getAllConsoles());
+  }, []);
 
   // 英語マッピング
   const manufacturersEN = {
@@ -86,8 +93,8 @@ const SalesRequest = () => {
       console: ''
     });
     
-    if (manufacturerValue && gameConsoles[manufacturerValue]) {
-      setAvailableConsoles(gameConsoles[manufacturerValue]);
+    if (manufacturerValue && allGameConsoles[manufacturerValue]) {
+      setAvailableConsoles(allGameConsoles[manufacturerValue]);
     } else {
       setAvailableConsoles([]);
     }

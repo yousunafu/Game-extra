@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { manufacturers, gameConsoles, colors, conditions } from '../data/gameConsoles';
+import { manufacturers, colors, conditions } from '../data/gameConsoles';
+import { getAllConsoles } from '../utils/productMaster';
 import './Inventory.css';
 
 const Inventory = () => {
@@ -8,15 +9,29 @@ const Inventory = () => {
   const [productTypeFilter, setProductTypeFilter] = useState('');
   const [manufacturerFilter, setManufacturerFilter] = useState('');
   const [rankFilter, setRankFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   
   // 表示モード
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'detail'
   const [selectedItem, setSelectedItem] = useState(null);
   
+  // eBay販売フォーム
+  const [showSalesForm, setShowSalesForm] = useState(false);
+  const [salesFormData, setSalesFormData] = useState({
+    salesChannel: 'direct', // 'direct' or 'ebay'
+    ebayRecordNumber: '',
+    buyerName: '',
+    soldPrice: 0,
+    shippingFee: 0,
+    quantity: 1,
+    performedBy: ''
+  });
+  
   // 在庫追加モーダル関連
   const [showAddModal, setShowAddModal] = useState(false);
   const [sourceType, setSourceType] = useState(null); // null, 'customer', 'supplier'
   const [availableConsoles, setAvailableConsoles] = useState([]);
+  const [allGameConsoles, setAllGameConsoles] = useState({});
   
   // フォームデータ
   const [formData, setFormData] = useState({
@@ -43,6 +58,7 @@ const Inventory = () => {
   useEffect(() => {
     const inventoryData = JSON.parse(localStorage.getItem('inventory') || '[]');
     setInventory(inventoryData);
+    setAllGameConsoles(getAllConsoles());
   }, []);
 
   const totalItems = inventory.reduce((sum, item) => sum + item.quantity, 0);
@@ -51,8 +67,9 @@ const Inventory = () => {
 
   // フィルタリング
   const filteredInventory = inventory.filter(item => {
-    // 商品名検索（機種名、ソフト名、カラーを含む）
-    const searchText = `${item.consoleLabel || ''} ${item.softwareName || ''} ${item.colorLabel || ''}`.toLowerCase();
+    // 商品名検索（機種名、ソフト名、カラー、管理番号を含む）
+    const managementNumbersText = item.managementNumbers ? item.managementNumbers.join(' ') : '';
+    const searchText = `${item.consoleLabel || ''} ${item.softwareName || ''} ${item.colorLabel || ''} ${managementNumbersText}`.toLowerCase();
     const matchesSearch = searchText.includes(searchTerm.toLowerCase());
     
     // 商品タイプフィルター
@@ -64,7 +81,11 @@ const Inventory = () => {
     // ランクフィルター
     const matchesRank = !rankFilter || item.assessedRank === rankFilter;
     
-    return matchesSearch && matchesProductType && matchesManufacturer && matchesRank;
+    // ステータスフィルター
+    const itemStatus = item.status || 'in_stock';
+    const matchesStatus = !statusFilter || itemStatus === statusFilter;
+    
+    return matchesSearch && matchesProductType && matchesManufacturer && matchesRank && matchesStatus;
   });
 
   const handleExportData = () => {
@@ -83,6 +104,181 @@ const Inventory = () => {
   const handleBackToList = () => {
     setSelectedItem(null);
     setViewMode('list');
+    setShowSalesForm(false);
+    setSalesFormData({
+      salesChannel: 'direct',
+      ebayRecordNumber: '',
+      buyerName: '',
+      soldPrice: 0,
+      shippingFee: 0
+    });
+  };
+
+  // ステータス変更（eBay販売・発送済み）
+  const handleStatusChange = (itemId, newStatus, salesData = {}) => {
+    const inventoryData = JSON.parse(localStorage.getItem('inventory') || '[]');
+    const updatedInventory = inventoryData.map(item => {
+      if (item.id === itemId) {
+        return {
+          ...item,
+          status: newStatus,
+          ...salesData,
+          statusUpdatedAt: new Date().toISOString()
+        };
+      }
+      return item;
+    });
+    
+    localStorage.setItem('inventory', JSON.stringify(updatedInventory));
+    setInventory(updatedInventory);
+    
+    // 選択中のアイテムも更新
+    if (selectedItem && selectedItem.id === itemId) {
+      const updated = updatedInventory.find(item => item.id === itemId);
+      setSelectedItem(updated);
+    }
+    
+    alert(`ステータスを「${getStatusLabel(newStatus)}」に変更しました`);
+  };
+
+  const getStatusLabel = (status) => {
+    switch (status) {
+      case 'in_stock': return '在庫中';
+      case 'reserved': return '予約済み';
+      case 'shipped': return '発送済み';
+      default: return '在庫中';
+    }
+  };
+
+  const getStatusBadgeClass = (status) => {
+    switch (status) {
+      case 'in_stock': return 'status-in-stock';
+      case 'reserved': return 'status-reserved';
+      case 'shipped': return 'status-shipped';
+      default: return 'status-in-stock';
+    }
+  };
+
+  // 販売処理（発送済みに変更）
+  const handleMarkAsShipped = () => {
+    if (!selectedItem) return;
+
+    // バリデーション
+    if (salesFormData.salesChannel === 'ebay' && !salesFormData.ebayRecordNumber) {
+      alert('eBayセールスレコード番号を入力してください');
+      return;
+    }
+
+    if (!salesFormData.buyerName) {
+      alert('購入者名を入力してください');
+      return;
+    }
+
+    const quantity = salesFormData.quantity || 1;
+    if (quantity < 1 || quantity > selectedItem.quantity) {
+      alert(`販売数量は1から${selectedItem.quantity}の間で指定してください`);
+      return;
+    }
+
+    if (!salesFormData.performedBy) {
+      alert('担当者名を入力してください');
+      return;
+    }
+
+    if (!confirm(`${quantity}点を発送済みにしますか？`)) {
+      return;
+    }
+
+    // 在庫を更新
+    const inventoryData = JSON.parse(localStorage.getItem('inventory') || '[]');
+    const salesHistory = JSON.parse(localStorage.getItem('salesHistory') || '[]');
+    const inventoryHistory = JSON.parse(localStorage.getItem('inventoryHistory') || '[]');
+    
+    let updatedInventory = inventoryData.map(item => {
+      if (item.id === selectedItem.id) {
+        const newQuantity = item.quantity - quantity;
+        
+        // 管理番号を割り当て（販売する数量分）
+        const soldManagementNumbers = (item.managementNumbers || []).slice(0, quantity);
+        const remainingManagementNumbers = (item.managementNumbers || []).slice(quantity);
+        
+        // 販売履歴を作成
+        const saleRecord = {
+          id: `SALE-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          inventoryItemId: item.id,
+          productType: item.productType,
+          manufacturer: item.manufacturer,
+          manufacturerLabel: item.manufacturerLabel,
+          console: item.console,
+          consoleLabel: item.consoleLabel,
+          color: item.color,
+          colorLabel: item.colorLabel,
+          softwareName: item.softwareName,
+          assessedRank: item.assessedRank,
+          quantity: quantity,
+          acquisitionPrice: item.acquisitionPrice || item.buybackPrice,
+          soldPrice: salesFormData.soldPrice || item.buybackPrice,
+          shippingFee: salesFormData.shippingFee || 0,
+          profit: (salesFormData.soldPrice || item.buybackPrice) - (item.acquisitionPrice || item.buybackPrice),
+          salesChannel: salesFormData.salesChannel,
+          ebayRecordNumber: salesFormData.salesChannel === 'ebay' ? salesFormData.ebayRecordNumber : null,
+          soldTo: salesFormData.buyerName,
+          soldAt: new Date().toISOString(),
+          managementNumbers: soldManagementNumbers
+        };
+        salesHistory.push(saleRecord);
+        
+        // 在庫変更履歴を記録
+        inventoryHistory.push({
+          itemId: item.id,
+          type: 'remove',
+          change: quantity,
+          beforeQuantity: item.quantity,
+          afterQuantity: newQuantity,
+          date: new Date().toISOString(),
+          performedBy: salesFormData.performedBy || 'スタッフ',
+          reason: `販売処理（${salesFormData.salesChannel === 'ebay' ? 'eBay' : '直接販売'}）`,
+          relatedTransaction: {
+            type: 'sale',
+            saleId: saleRecord.id,
+            buyer: salesFormData.buyerName
+          }
+        });
+        
+        return {
+          ...item,
+          quantity: newQuantity,
+          managementNumbers: remainingManagementNumbers,
+          statusUpdatedAt: new Date().toISOString()
+        };
+      }
+      return item;
+    });
+    
+    // 在庫が0になったアイテムを削除
+    updatedInventory = updatedInventory.filter(item => item.quantity > 0);
+    
+    localStorage.setItem('inventory', JSON.stringify(updatedInventory));
+    localStorage.setItem('salesHistory', JSON.stringify(salesHistory));
+    localStorage.setItem('inventoryHistory', JSON.stringify(inventoryHistory));
+    
+    setInventory(updatedInventory);
+    setShowSalesForm(false);
+    setSalesFormData({
+      salesChannel: 'direct',
+      ebayRecordNumber: '',
+      buyerName: '',
+      soldPrice: 0,
+      shippingFee: 0,
+      quantity: 1,
+      performedBy: ''
+    });
+    
+    // 一覧画面に戻る
+    setViewMode('list');
+    setSelectedItem(null);
+    
+    alert(`${quantity}点の販売処理が完了しました`);
   };
 
   // 在庫変更履歴を取得（localStorageから）
@@ -116,7 +312,33 @@ const Inventory = () => {
       }
     }
     
-    // 販売記録
+    // 販売記録（新しいsalesHistory）
+    const salesHistory = JSON.parse(localStorage.getItem('salesHistory') || '[]');
+    const itemSales = salesHistory.filter(s => s.inventoryItemId === item.id);
+    itemSales.forEach(sale => {
+      const saleHistory = itemHistory.find(h => 
+        h.type === 'remove' && h.relatedTransaction?.saleId === sale.id
+      );
+      
+      transactions.push({
+        type: 'sales',
+        date: sale.soldAt,
+        party: sale.soldTo,
+        status: 'completed',
+        saleId: sale.id,
+        salesChannel: sale.salesChannel === 'ebay' ? 'eBay販売' : '直接販売',
+        ebayRecordNumber: sale.ebayRecordNumber,
+        quantity: sale.quantity,
+        stockChange: `-${sale.quantity}台`,
+        stockAfter: saleHistory?.afterQuantity,
+        performedBy: saleHistory?.performedBy,
+        soldPrice: sale.soldPrice,
+        profit: sale.profit,
+        managementNumbers: sale.managementNumbers || []
+      });
+    });
+    
+    // 販売記録（旧salesLedger - 後方互換性のため残す）
     const salesLedger = JSON.parse(localStorage.getItem('salesLedger') || '[]');
     const sales = salesLedger.filter(s => 
       s.items && s.items.some(si => si.inventoryId === item.id)
@@ -185,8 +407,8 @@ const Inventory = () => {
       console: ''
     });
     
-    if (manufacturerValue && gameConsoles[manufacturerValue]) {
-      setAvailableConsoles(gameConsoles[manufacturerValue]);
+    if (manufacturerValue && allGameConsoles[manufacturerValue]) {
+      setAvailableConsoles(allGameConsoles[manufacturerValue]);
     } else {
       setAvailableConsoles([]);
     }
@@ -346,7 +568,7 @@ const Inventory = () => {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="機種名、ソフト名、カラーで検索"
+              placeholder="機種名、ソフト名、カラー、管理番号で検索"
             />
           </div>
           <div className="form-group">
@@ -376,6 +598,15 @@ const Inventory = () => {
               <option value="C">C（難あり）</option>
             </select>
           </div>
+          <div className="form-group">
+            <label>ステータス</label>
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+              <option value="">全て</option>
+              <option value="in_stock">📦 在庫中</option>
+              <option value="reserved">📋 予約済み</option>
+              <option value="shipped">✈️ 発送済み</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -391,11 +622,13 @@ const Inventory = () => {
         <table className="inventory-table">
           <thead>
             <tr>
+              <th>管理番号</th>
               <th>商品タイプ</th>
               <th>メーカー</th>
               <th>機種/ソフト名</th>
               <th>カラー</th>
               <th>ランク</th>
+              <th>ステータス</th>
               <th>数量</th>
               <th>買取単価</th>
               <th>評価額</th>
@@ -403,8 +636,32 @@ const Inventory = () => {
             </tr>
           </thead>
           <tbody>
-            {filteredInventory.map(item => (
+            {filteredInventory.map(item => {
+              // 管理番号の表示テキストを生成
+              let managementNumberDisplay = '-';
+              if (item.managementNumbers && item.managementNumbers.length > 0) {
+                const numbers = item.managementNumbers;
+                if (numbers.length === 1) {
+                  managementNumberDisplay = numbers[0];
+                } else {
+                  const first = numbers[0];
+                  const last = numbers[numbers.length - 1];
+                  const firstSeq = first.split('_').pop();
+                  const lastSeq = last.split('_').pop();
+                  const baseNumber = first.substring(0, first.lastIndexOf('_') + 1);
+                  managementNumberDisplay = `${baseNumber}${firstSeq}~${lastSeq}`;
+                }
+              }
+              
+              return (
               <tr key={item.id} onClick={() => handleViewDetails(item)}>
+                <td className="management-number-cell">
+                  {managementNumberDisplay !== '-' ? (
+                    <span className="management-number-badge-inv">{managementNumberDisplay}</span>
+                  ) : (
+                    <span className="no-management-number">-</span>
+                  )}
+                </td>
                 <td>
                   <span className="type-badge">
                     {item.productType === 'console' ? '🎮 本体' : '💿 ソフト'}
@@ -433,16 +690,22 @@ const Inventory = () => {
                     {item.assessedRank}
                   </span>
                 </td>
+                <td>
+                  <span className={`status-badge ${getStatusBadgeClass(item.status || 'in_stock')}`}>
+                    {getStatusLabel(item.status || 'in_stock')}
+                  </span>
+                </td>
                 <td className="quantity-cell">{item.quantity}</td>
                 <td className="price-cell">¥{item.buybackPrice.toLocaleString()}</td>
                 <td className="value-cell">¥{(item.buybackPrice * item.quantity).toLocaleString()}</td>
                 <td className="date-cell">{new Date(item.registeredDate).toLocaleDateString('ja-JP')}</td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
           <tfoot>
             <tr className="total-row">
-              <td colSpan="5">合計</td>
+              <td colSpan="7">合計</td>
               <td>{filteredInventory.reduce((sum, item) => sum + item.quantity, 0)}</td>
               <td>-</td>
               <td>¥{filteredInventory.reduce((sum, item) => sum + (item.buybackPrice * item.quantity), 0).toLocaleString()}</td>
@@ -907,6 +1170,41 @@ const Inventory = () => {
               <div className="detail-card">
                 <h2>🎮 商品情報</h2>
                 <div className="detail-grid">
+                  {(() => {
+                    // 管理番号の表示ロジック
+                    const numbers = selectedItem.managementNumbers;
+                    
+                    // 管理番号がない場合はスキップ
+                    if (!numbers || numbers.length === 0) {
+                      return null;
+                    }
+                    
+                    let displayText = '';
+                    if (numbers.length === 1) {
+                      displayText = numbers[0];
+                    } else {
+                      try {
+                        const first = numbers[0];
+                        const last = numbers[numbers.length - 1];
+                        const firstSeq = first.split('_').pop();
+                        const lastSeq = last.split('_').pop();
+                        const baseNumber = first.substring(0, first.lastIndexOf('_') + 1);
+                        displayText = `${baseNumber}${firstSeq}~${lastSeq} (${numbers.length}点)`;
+                      } catch (e) {
+                        // エラーの場合は全て表示
+                        displayText = numbers.join(', ');
+                      }
+                    }
+                    
+                    return (
+                      <div className="detail-row highlight-row">
+                        <span className="detail-label">🏷️ 管理番号:</span>
+                        <span className="detail-value management-number-large">
+                          {displayText}
+                        </span>
+                      </div>
+                    );
+                  })()}
                   <div className="detail-row">
                     <span className="detail-label">商品ID:</span>
                     <span className="detail-value">{selectedItem.id}</span>
@@ -969,6 +1267,228 @@ const Inventory = () => {
                       {new Date(selectedItem.registeredDate).toLocaleString('ja-JP')}
                     </span>
                   </div>
+                </div>
+                
+                {/* 管理番号の詳細リスト（複数ある場合） */}
+                {selectedItem.managementNumbers && selectedItem.managementNumbers.length > 1 && (
+                  <div className="management-numbers-detail">
+                    <h3>📋 管理番号一覧 ({selectedItem.managementNumbers.length}点)</h3>
+                    <div className="management-numbers-grid">
+                      {selectedItem.managementNumbers.map((number, idx) => (
+                        <div key={idx} className="management-number-item">
+                          <span className="number-index">{idx + 1}.</span>
+                          <span className="number-value">{number}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ステータスと販売情報 */}
+              <div className="detail-card">
+                <h2>📊 ステータス</h2>
+                <div className="status-info-section">
+                  <div className="status-header-row">
+                    <div className="current-status">
+                      <span className="status-label">現在のステータス:</span>
+                      <span className={`status-badge-large ${getStatusBadgeClass(selectedItem.status || 'in_stock')}`}>
+                        {getStatusLabel(selectedItem.status || 'in_stock')}
+                      </span>
+                    </div>
+                    
+                    {/* 在庫中の場合のみ販売ボタン表示 */}
+                    {(selectedItem.status || 'in_stock') === 'in_stock' && !showSalesForm && (
+                      <button 
+                        className="btn-start-sales" 
+                        onClick={() => {
+                          setShowSalesForm(true);
+                          setSalesFormData({
+                            salesChannel: 'direct',
+                            ebayRecordNumber: '',
+                            buyerName: '',
+                            soldPrice: 0,
+                            shippingFee: 0,
+                            quantity: 1,
+                            performedBy: ''
+                          });
+                        }}
+                      >
+                        📤 eBay販売処理を開始
+                      </button>
+                    )}
+                  </div>
+                  
+                  {/* 販売フォーム */}
+                  {(selectedItem.status || 'in_stock') === 'in_stock' && showSalesForm && (
+                    <div className="sales-action-section">
+                      <div className="sales-form">
+                          <h3>販売情報の入力</h3>
+                          
+                          <div className="form-group full-width">
+                            <label>販売チャネル *</label>
+                            <div className="radio-group-horizontal">
+                              <label className="radio-label">
+                                <input
+                                  type="radio"
+                                  value="direct"
+                                  checked={salesFormData.salesChannel === 'direct'}
+                                  onChange={(e) => setSalesFormData({...salesFormData, salesChannel: e.target.value})}
+                                />
+                                🏪 直接販売
+                              </label>
+                              <label className="radio-label">
+                                <input
+                                  type="radio"
+                                  value="ebay"
+                                  checked={salesFormData.salesChannel === 'ebay'}
+                                  onChange={(e) => setSalesFormData({...salesFormData, salesChannel: e.target.value})}
+                                />
+                                🌐 eBay販売
+                              </label>
+                            </div>
+                          </div>
+
+                          {salesFormData.salesChannel === 'ebay' && (
+                            <div className="form-group">
+                              <label>eBayセールスレコード番号 *</label>
+                              <input
+                                type="text"
+                                value={salesFormData.ebayRecordNumber}
+                                onChange={(e) => setSalesFormData({...salesFormData, ebayRecordNumber: e.target.value})}
+                                placeholder="例: 123-45678-90123"
+                                className="ebay-record-input"
+                              />
+                              <small className="input-hint">eBayの注文番号を入力してください</small>
+                            </div>
+                          )}
+
+                          <div className="form-row-sales">
+                            <div className="form-group">
+                              <label>購入者名 *</label>
+                              <input
+                                type="text"
+                                value={salesFormData.buyerName}
+                                onChange={(e) => setSalesFormData({...salesFormData, buyerName: e.target.value})}
+                                placeholder="John Smith"
+                              />
+                            </div>
+
+                            <div className="form-group">
+                              <label>販売数量 *</label>
+                              <input
+                                type="number"
+                                min="1"
+                                max={selectedItem.quantity}
+                                value={salesFormData.quantity}
+                                onChange={(e) => setSalesFormData({...salesFormData, quantity: parseInt(e.target.value) || 1})}
+                                placeholder="1"
+                              />
+                              <small className="input-hint">現在の在庫: {selectedItem.quantity}点</small>
+                            </div>
+                          </div>
+
+                          <div className="form-row-sales">
+                            <div className="form-group">
+                              <label>販売価格（円）</label>
+                              <input
+                                type="number"
+                                value={salesFormData.soldPrice || selectedItem.buybackPrice}
+                                onChange={(e) => setSalesFormData({...salesFormData, soldPrice: parseInt(e.target.value) || 0})}
+                                placeholder="0"
+                              />
+                            </div>
+
+                            <div className="form-group">
+                              <label>送料（円）</label>
+                              <input
+                                type="number"
+                                value={salesFormData.shippingFee}
+                                onChange={(e) => setSalesFormData({...salesFormData, shippingFee: parseInt(e.target.value) || 0})}
+                                placeholder="0"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="form-group">
+                            <label>担当者名 *</label>
+                            <input
+                              type="text"
+                              value={salesFormData.performedBy}
+                              onChange={(e) => setSalesFormData({...salesFormData, performedBy: e.target.value})}
+                              placeholder="山田 太郎"
+                            />
+                          </div>
+
+                          <div className="form-actions-sales">
+                            <button 
+                              className="btn-cancel-sales" 
+                              onClick={() => {
+                                setShowSalesForm(false);
+                                setSalesFormData({
+                                  salesChannel: 'direct',
+                                  ebayRecordNumber: '',
+                                  buyerName: '',
+                                  soldPrice: 0,
+                                  shippingFee: 0,
+                                  quantity: 1,
+                                  performedBy: ''
+                                });
+                              }}
+                            >
+                              キャンセル
+                            </button>
+                            <button 
+                              className="btn-mark-shipped" 
+                              onClick={handleMarkAsShipped}
+                            >
+                              ✈️ 発送済みにする
+                            </button>
+                          </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 発送済みの場合は販売情報を表示 */}
+                  {selectedItem.status === 'shipped' && (
+                    <div className="sales-info-display">
+                      <h3>📤 販売情報</h3>
+                      <div className="sales-detail-grid">
+                        <div className="sales-detail-row">
+                          <span className="detail-label">販売チャネル:</span>
+                          <span className="detail-value">
+                            {selectedItem.salesChannel === 'ebay' ? '🌐 eBay販売' : '🏪 直接販売'}
+                          </span>
+                        </div>
+                        {selectedItem.ebayRecordNumber && (
+                          <div className="sales-detail-row">
+                            <span className="detail-label">eBayレコード番号:</span>
+                            <span className="detail-value ebay-record">{selectedItem.ebayRecordNumber}</span>
+                          </div>
+                        )}
+                        <div className="sales-detail-row">
+                          <span className="detail-label">購入者:</span>
+                          <span className="detail-value">{selectedItem.soldTo}</span>
+                        </div>
+                        <div className="sales-detail-row">
+                          <span className="detail-label">販売価格:</span>
+                          <span className="detail-value">¥{(selectedItem.soldPrice || 0).toLocaleString()}</span>
+                        </div>
+                        {selectedItem.shippingFee > 0 && (
+                          <div className="sales-detail-row">
+                            <span className="detail-label">送料:</span>
+                            <span className="detail-value">¥{selectedItem.shippingFee.toLocaleString()}</span>
+                          </div>
+                        )}
+                        <div className="sales-detail-row">
+                          <span className="detail-label">発送日時:</span>
+                          <span className="detail-value">
+                            {new Date(selectedItem.soldAt).toLocaleString('ja-JP')}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1067,12 +1587,56 @@ const Inventory = () => {
                             </span>
                           </div>
                           <div className="timeline-details">
-                            <p><strong>取引先:</strong> {trans.party}</p>
-                            {trans.applicationNumber && (
-                              <p><strong>申込番号:</strong> {trans.applicationNumber}</p>
+                            {/* 買取の場合 */}
+                            {trans.type === 'buyback' && (
+                              <>
+                                <p><strong>取引先:</strong> {trans.party}</p>
+                                {trans.applicationNumber && (
+                                  <p><strong>申込番号:</strong> {trans.applicationNumber}</p>
+                                )}
+                              </>
                             )}
+                            
+                            {/* 販売の場合 */}
+                            {trans.type === 'sales' && (
+                              <>
+                                <div className="transaction-inline-info">
+                                  <span><strong>取引先:</strong> {trans.party}</span>
+                                  {trans.salesChannel && (
+                                    <span><strong>販売チャネル:</strong> {trans.salesChannel}</span>
+                                  )}
+                                  {trans.ebayRecordNumber && (
+                                    <span><strong>eBayレコード番号:</strong> {trans.ebayRecordNumber}</span>
+                                  )}
+                                </div>
+                                
+                                {trans.soldPrice && trans.quantity && (
+                                  <div className="transaction-inline-info">
+                                    <span><strong>販売価格:</strong> ¥{trans.soldPrice.toLocaleString()} × {trans.quantity}台 = ¥{(trans.soldPrice * trans.quantity).toLocaleString()}</span>
+                                    {trans.profit !== undefined && (
+                                      <span className={trans.profit >= 0 ? 'profit-positive' : 'profit-negative'}>
+                                        <strong>総利益:</strong> ¥{(trans.profit * trans.quantity).toLocaleString()}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </>
+                            )}
+                            
                             {trans.requestNumber && (
                               <p><strong>リクエスト番号:</strong> {trans.requestNumber}</p>
+                            )}
+                            {trans.managementNumbers && trans.managementNumbers.length > 0 && (
+                              <div className="management-numbers-in-history">
+                                <strong>🏷️ 管理番号:</strong>
+                                <div className="management-numbers-list">
+                                  {trans.managementNumbers.map((number, idx) => (
+                                    <span key={idx} className="management-number-tag">
+                                      {number}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
                             )}
                             <div className="stock-change-info">
                               <span className={`stock-change ${trans.type === 'buyback' ? 'increase' : 'decrease'}`}>

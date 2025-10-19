@@ -9,13 +9,37 @@ const Layout = ({ children }) => {
   const location = useLocation();
   const [pendingEstimatesCount, setPendingEstimatesCount] = useState(0);
   const [pendingSalesCount, setPendingSalesCount] = useState(0);
+  
+  // ドロップダウンメニューの開閉状態
+  const [openDropdown, setOpenDropdown] = useState(null); // 'business', 'analytics', 'settings'
 
   const handleLogout = () => {
+    const currentRole = user?.role;
     logout();
-    navigate('/login');
+    
+    // roleに応じて適切なログイン画面にリダイレクト
+    if (currentRole === 'overseas_customer') {
+      navigate('/intl/portal/auth');
+    } else if (['staff', 'manager', 'admin'].includes(currentRole)) {
+      navigate('/sys/staff/auth');
+    } else {
+      navigate('/login');
+    }
   };
 
   const isActive = (path) => location.pathname === path;
+
+  // ドロップダウンの開閉
+  const toggleDropdown = (menu) => {
+    setOpenDropdown(openDropdown === menu ? null : menu);
+  };
+
+  // メニュー外クリックで閉じる
+  useEffect(() => {
+    const handleClickOutside = () => setOpenDropdown(null);
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
 
   // お客様の場合、承認待ちの見積もりをカウント
   // スタッフの場合、進行中の取引をカウント
@@ -87,35 +111,96 @@ const Layout = ({ children }) => {
             
             {isStaff && (
               <>
-                <Link to="/rating" className={`nav-link-with-badge ${isActive('/rating') ? 'active' : ''}`}>
-                  買取査定
-                  {pendingEstimatesCount > 0 && (
-                    <span className="notification-badge">{pendingEstimatesCount}</span>
+                {/* 業務メニュー */}
+                <div 
+                  className="dropdown-menu" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleDropdown('business');
+                  }}
+                >
+                  <button className={`dropdown-trigger ${openDropdown === 'business' ? 'active' : ''}`}>
+                    📋 業務 ▼
+                    {(pendingEstimatesCount > 0 || pendingSalesCount > 0) && (
+                      <span className="notification-badge">{pendingEstimatesCount + pendingSalesCount}</span>
+                    )}
+                  </button>
+                  {openDropdown === 'business' && (
+                    <div className="dropdown-content">
+                      <Link to="/rating" className={isActive('/rating') ? 'active' : ''}>
+                        買取査定
+                        {pendingEstimatesCount > 0 && (
+                          <span className="notification-badge-small">{pendingEstimatesCount}</span>
+                        )}
+                      </Link>
+                      <Link to="/sales" className={isActive('/sales') ? 'active' : ''}>
+                        販売管理
+                        {pendingSalesCount > 0 && (
+                          <span className="notification-badge-small">{pendingSalesCount}</span>
+                        )}
+                      </Link>
+                      <Link to="/inventory" className={isActive('/inventory') ? 'active' : ''}>
+                        在庫管理
+                      </Link>
+                      <Link to="/ledger" className={isActive('/ledger') ? 'active' : ''}>
+                        古物台帳
+                      </Link>
+                    </div>
                   )}
-                </Link>
-                <Link to="/sales" className={`nav-link-with-badge ${isActive('/sales') ? 'active' : ''}`}>
-                  販売管理
-                  {pendingSalesCount > 0 && (
-                    <span className="notification-badge">{pendingSalesCount}</span>
-                  )}
-                </Link>
-                <Link to="/inventory" className={isActive('/inventory') ? 'active' : ''}>
-                  在庫管理
-                </Link>
-                <Link to="/ledger" className={isActive('/ledger') ? 'active' : ''}>
-                  古物台帳
-                </Link>
+                </div>
               </>
             )}
             
             {isManager && (
               <>
-                <Link to="/dashboard" className={isActive('/dashboard') ? 'active' : ''}>
-                  ダッシュボード
-                </Link>
-                <Link to="/sales-analytics" className={isActive('/sales-analytics') ? 'active' : ''}>
-                  販売分析
-                </Link>
+                {/* 分析メニュー */}
+                <div 
+                  className="dropdown-menu" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleDropdown('analytics');
+                  }}
+                >
+                  <button className={`dropdown-trigger ${openDropdown === 'analytics' ? 'active' : ''}`}>
+                    📊 分析 ▼
+                  </button>
+                  {openDropdown === 'analytics' && (
+                    <div className="dropdown-content">
+                      <Link to="/dashboard" className={isActive('/dashboard') ? 'active' : ''}>
+                        ダッシュボード
+                      </Link>
+                      <Link to="/sales-analytics" className={isActive('/sales-analytics') ? 'active' : ''}>
+                        販売分析
+                      </Link>
+                    </div>
+                  )}
+                </div>
+
+                {/* 設定メニュー */}
+                <div 
+                  className="dropdown-menu" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleDropdown('settings');
+                  }}
+                >
+                  <button className={`dropdown-trigger ${openDropdown === 'settings' ? 'active' : ''}`}>
+                    ⚙️ 設定 ▼
+                  </button>
+                  {openDropdown === 'settings' && (
+                    <div className="dropdown-content">
+                      <Link to="/sys/admin/pricing-management" className={isActive('/sys/admin/pricing-management') ? 'active' : ''}>
+                        💰 価格管理
+                      </Link>
+                      <Link to="/sys/admin/staff-management" className={isActive('/sys/admin/staff-management') ? 'active' : ''}>
+                        👥 スタッフ管理
+                      </Link>
+                      <Link to="/sys/admin/product-management" className={isActive('/sys/admin/product-management') ? 'active' : ''}>
+                        🎮 商品マスタ
+                      </Link>
+                    </div>
+                  )}
+                </div>
               </>
             )}
           </nav>
