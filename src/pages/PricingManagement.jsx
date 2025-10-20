@@ -10,13 +10,21 @@ import {
   setBuyerAdjustment,
   deleteBuyerAdjustment,
   calculateBuyerPrice,
-  getAllBuyers
+  getAllBuyers,
+  getAllBuybackBasePrices,
+  setAllBuybackBasePrice,
+  getAllCustomerAdjustments,
+  setCustomerAdjustment,
+  deleteCustomerAdjustment,
+  calculateCustomerPrice,
+  getAllCustomers
 } from '../utils/priceCalculator';
 import './PricingManagement.css';
 
 const PricingManagement = () => {
   const { isAdmin, isManager } = useAuth();
-  const [activeTab, setActiveTab] = useState('base'); // 'base' or 'buyer'
+  const [priceMode, setPriceMode] = useState(''); // 'sales' or 'buyback'
+  const [activeTab, setActiveTab] = useState('base'); // 'base' or 'buyer'/'customer'
   
   // 基準価格タブ
   const [selectedManufacturer, setSelectedManufacturer] = useState('');
@@ -49,9 +57,15 @@ const PricingManagement = () => {
 
   useEffect(() => {
     setAllGameConsoles(getAllConsoles());
-    setAllBasePrices(getAllBasePrices());
-    setBuyers(getAllBuyers());
-  }, []);
+    // モード選択後にデータを読み込む
+    if (priceMode === 'sales') {
+      setAllBasePrices(getAllBasePrices());
+      setBuyers(getAllBuyers());
+    } else if (priceMode === 'buyback') {
+      setAllBasePrices(getAllBuybackBasePrices());
+      setBuyers(getAllCustomers());
+    }
+  }, [priceMode]);
 
   // 基準価格：メーカー選択時
   const handleManufacturerChange = (value) => {
@@ -85,18 +99,28 @@ const PricingManagement = () => {
     }
 
     const productCode = generateProductCode(selectedManufacturer, selectedConsole, 'console');
-    setAllBasePrice(productCode, basePriceForm);
     
-    // 状態を更新
-    setAllBasePrices(getAllBasePrices());
+    // モードに応じて保存
+    if (priceMode === 'sales') {
+      setAllBasePrice(productCode, basePriceForm);
+      setAllBasePrices(getAllBasePrices());
+    } else if (priceMode === 'buyback') {
+      setAllBuybackBasePrice(productCode, basePriceForm);
+      setAllBasePrices(getAllBuybackBasePrices());
+    }
+    
     setSuccess(`基準価格を保存しました（${productCode}）`);
     setTimeout(() => setSuccess(''), 3000);
   };
 
-  // バイヤー調整：バイヤー選択時
+  // バイヤー/お客様調整：選択時
   const handleBuyerChange = (email) => {
     setSelectedBuyer(email);
-    setBuyerAdjustments(getAllBuyerAdjustments(email));
+    if (priceMode === 'sales') {
+      setBuyerAdjustments(getAllBuyerAdjustments(email));
+    } else if (priceMode === 'buyback') {
+      setBuyerAdjustments(getAllCustomerAdjustments(email));
+    }
   };
 
   // バイヤー調整：メーカー選択時
@@ -111,10 +135,10 @@ const PricingManagement = () => {
     }
   };
 
-  // バイヤー調整：適用
+  // バイヤー/お客様調整：適用
   const handleApplyAdjustment = () => {
     if (!selectedBuyer) {
-      setError('バイヤーを選択してください');
+      setError(priceMode === 'sales' ? 'バイヤーを選択してください' : 'お客様を選択してください');
       return;
     }
     
@@ -132,12 +156,20 @@ const PricingManagement = () => {
 
     const productCode = generateProductCode(adjustmentManufacturer, adjustmentConsole, 'console');
     
-    // 数値に変換したadjustmentFormを保存
-    setBuyerAdjustment(selectedBuyer, productCode, {
-      ...adjustmentForm,
-      value: numValue
-    });
-    setBuyerAdjustments(getAllBuyerAdjustments(selectedBuyer));
+    // モードに応じて保存
+    if (priceMode === 'sales') {
+      setBuyerAdjustment(selectedBuyer, productCode, {
+        ...adjustmentForm,
+        value: numValue
+      });
+      setBuyerAdjustments(getAllBuyerAdjustments(selectedBuyer));
+    } else if (priceMode === 'buyback') {
+      setCustomerAdjustment(selectedBuyer, productCode, {
+        ...adjustmentForm,
+        value: numValue
+      });
+      setBuyerAdjustments(getAllCustomerAdjustments(selectedBuyer));
+    }
     
     setSuccess('価格調整を適用しました');
     setTimeout(() => setSuccess(''), 3000);
@@ -152,12 +184,18 @@ const PricingManagement = () => {
     });
   };
 
-  // バイヤー調整：削除
+  // バイヤー/お客様調整：削除
   const handleDeleteAdjustment = (productCode) => {
     if (!confirm('この価格調整を削除しますか？')) return;
     
-    deleteBuyerAdjustment(selectedBuyer, productCode);
-    setBuyerAdjustments(getAllBuyerAdjustments(selectedBuyer));
+    if (priceMode === 'sales') {
+      deleteBuyerAdjustment(selectedBuyer, productCode);
+      setBuyerAdjustments(getAllBuyerAdjustments(selectedBuyer));
+    } else if (priceMode === 'buyback') {
+      deleteCustomerAdjustment(selectedBuyer, productCode);
+      setBuyerAdjustments(getAllCustomerAdjustments(selectedBuyer));
+    }
+    
     setSuccess('価格調整を削除しました');
     setTimeout(() => setSuccess(''), 3000);
   };
@@ -212,30 +250,89 @@ const PricingManagement = () => {
     <div className="pricing-management-container">
       <div className="page-header">
         <h1>💰 価格管理</h1>
-        <p>基準価格の設定とバイヤー別価格調整</p>
+        <p>基準価格の設定と個別価格調整</p>
       </div>
 
       {success && <div className="success-message">{success}</div>}
       {error && <div className="error-message">{error}</div>}
 
-      {/* タブ切り替え */}
-      <div className="tab-navigation">
-        <button
-          className={`tab-btn ${activeTab === 'base' ? 'active' : ''}`}
-          onClick={() => setActiveTab('base')}
-        >
-          📊 基準価格設定
-        </button>
-        <button
-          className={`tab-btn ${activeTab === 'buyer' ? 'active' : ''}`}
-          onClick={() => setActiveTab('buyer')}
-        >
-          🎯 バイヤー別価格調整
-        </button>
-      </div>
+      {/* モード選択画面 */}
+      {!priceMode && (
+        <div className="mode-selection-container">
+          <h2>管理モードを選択してください</h2>
+          <p className="mode-selection-subtitle">販売価格または買取価格のいずれかを管理できます</p>
+          
+          <div className="mode-cards">
+            <div className="mode-card sales-mode" onClick={() => setPriceMode('sales')}>
+              <div className="mode-icon">💼</div>
+              <h3>販売価格管理モード</h3>
+              <p className="mode-description">
+                バイヤー（海外業者）に販売する際の価格を管理します
+              </p>
+              <ul className="mode-features">
+                <li>✓ バイヤー向け基準販売価格の設定</li>
+                <li>✓ バイヤー別の個別価格調整</li>
+                <li>✓ 販売価格のプレビューと管理</li>
+              </ul>
+              <button className="select-mode-btn">
+                このモードを選択 →
+              </button>
+            </div>
 
-      {/* タブ1: 基準価格設定 */}
-      {activeTab === 'base' && (
+            <div className="mode-card buyback-mode" onClick={() => setPriceMode('buyback')}>
+              <div className="mode-icon">🏪</div>
+              <h3>買取価格管理モード</h3>
+              <p className="mode-description">
+                お客様から買い取る際の価格を管理します
+              </p>
+              <ul className="mode-features">
+                <li>✓ お客様向け基準買取価格の設定</li>
+                <li>✓ お客様別の個別価格調整</li>
+                <li>✓ 買取価格のプレビューと管理</li>
+              </ul>
+              <button className="select-mode-btn">
+                このモードを選択 →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* モード選択後のUI */}
+      {priceMode && (
+        <>
+          <div className="mode-indicator">
+            <div className="current-mode-badge">
+              {priceMode === 'sales' ? '💼 販売価格管理モード' : '🏪 買取価格管理モード'}
+            </div>
+            <button className="change-mode-btn" onClick={() => {
+              setPriceMode('');
+              setActiveTab('base');
+              setSelectedBuyer('');
+              setSelectedManufacturer('');
+            }}>
+              モードを変更
+            </button>
+          </div>
+
+          {/* タブ切り替え */}
+          <div className="tab-navigation">
+            <button
+              className={`tab-btn ${activeTab === 'base' ? 'active' : ''}`}
+              onClick={() => setActiveTab('base')}
+            >
+              📊 基準価格設定
+            </button>
+            <button
+              className={`tab-btn ${activeTab === 'buyer' ? 'active' : ''}`}
+              onClick={() => setActiveTab('buyer')}
+            >
+              {priceMode === 'sales' ? '🎯 バイヤー別価格調整' : '👥 お客様別価格調整'}
+            </button>
+          </div>
+
+          {/* タブ1: 基準価格設定 */}
+          {activeTab === 'base' && (
         <div className="tab-content">
           <div className="section-header">
             <h2>📊 機種別基準価格設定</h2>
@@ -384,17 +481,21 @@ const PricingManagement = () => {
         </div>
       )}
 
-      {/* タブ2: バイヤー別価格調整 */}
-      {activeTab === 'buyer' && (
+          {/* タブ2: バイヤー別価格調整 */}
+          {activeTab === 'buyer' && (
         <div className="tab-content">
           <div className="section-header">
-            <h2>🎯 バイヤー別価格調整</h2>
-            <p className="section-description">特定のバイヤーに対して価格を調整できます</p>
+            <h2>{priceMode === 'sales' ? '🎯 バイヤー別価格調整' : '👥 お客様別価格調整'}</h2>
+            <p className="section-description">
+              {priceMode === 'sales' 
+                ? '特定のバイヤーに対して販売価格を調整できます' 
+                : '特定のお客様に対して買取価格を調整できます'}
+            </p>
           </div>
 
           <div className="buyer-adjustment-form">
             <div className="form-group">
-              <label>バイヤー選択 *</label>
+              <label>{priceMode === 'sales' ? 'バイヤー選択' : 'お客様選択'} *</label>
               <select
                 value={selectedBuyer}
                 onChange={(e) => handleBuyerChange(e.target.value)}
@@ -402,7 +503,7 @@ const PricingManagement = () => {
                 <option value="">選択してください</option>
                 {buyers.map(buyer => (
                   <option key={buyer.email} value={buyer.email}>
-                    {buyer.name} ({buyer.country || 'N/A'})
+                    {buyer.name} ({priceMode === 'sales' ? (buyer.country || 'N/A') : (buyer.email || 'N/A')})
                   </option>
                 ))}
               </select>
@@ -535,10 +636,10 @@ const PricingManagement = () => {
                   )}
                 </div>
 
-                {/* バイヤー別価格プレビュー */}
+                {/* バイヤー/お客様別価格プレビュー */}
                 {Object.keys(allBasePrices).length > 0 && (
                   <div className="price-preview-section">
-                    <h3>💵 価格プレビュー（このバイヤー向け）</h3>
+                    <h3>💵 価格プレビュー（{priceMode === 'sales' ? 'このバイヤー' : 'このお客様'}向け）</h3>
                     <div className="price-preview-grid">
                       {Object.entries(allBasePrices).map(([productCode, prices]) => {
                         const info = getConsoleInfo(productCode);
@@ -555,7 +656,9 @@ const PricingManagement = () => {
                             </div>
                             <div className="preview-prices">
                               {['S', 'A', 'B', 'C'].map(rank => {
-                                const calc = calculateBuyerPrice(productCode, rank, selectedBuyer);
+                                const calc = priceMode === 'sales' 
+                                  ? calculateBuyerPrice(productCode, rank, selectedBuyer)
+                                  : calculateCustomerPrice(productCode, rank, selectedBuyer);
                                 const isAdjusted = calc.finalPrice !== calc.basePrice;
                                 
                                 return (
@@ -581,6 +684,8 @@ const PricingManagement = () => {
             )}
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

@@ -25,7 +25,8 @@ export const gameConsoles = {
     { value: 'n64', label: 'NINTENDO64', year: 1996 },
     { value: 'sfc', label: 'スーパーファミコン', year: 1990 },
     { value: 'gb', label: 'ゲームボーイ', year: 1989 },
-    { value: 'fc', label: 'ファミリーコンピュータ', year: 1983 }
+    { value: 'fc', label: 'ファミリーコンピュータ', year: 1983 },
+    { value: 'other-manual', label: 'その他（手入力）', year: 0 }
   ],
   sony: [
     { value: 'ps5', label: 'PlayStation 5', year: 2020 },
@@ -37,7 +38,8 @@ export const gameConsoles = {
     { value: 'psp-go', label: 'PSP go', year: 2009 },
     { value: 'psp', label: 'PSP (1000~3000)', year: 2004 },
     { value: 'ps2', label: 'PlayStation 2', year: 2000 },
-    { value: 'ps1', label: 'PlayStation', year: 1994 }
+    { value: 'ps1', label: 'PlayStation', year: 1994 },
+    { value: 'other-manual', label: 'その他（手入力）', year: 0 }
   ],
   microsoft: [
     { value: 'xbox-series-x', label: 'Xbox Series X', year: 2020 },
@@ -46,7 +48,8 @@ export const gameConsoles = {
     { value: 'xbox-one-s', label: 'Xbox One S', year: 2016 },
     { value: 'xbox-one', label: 'Xbox One', year: 2013 },
     { value: 'xbox-360', label: 'Xbox 360', year: 2005 },
-    { value: 'xbox', label: 'Xbox', year: 2002 }
+    { value: 'xbox', label: 'Xbox', year: 2002 },
+    { value: 'other-manual', label: 'その他（手入力）', year: 0 }
   ],
   other: [
     { value: 'dreamcast', label: 'ドリームキャスト', year: 1998 },

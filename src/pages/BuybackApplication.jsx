@@ -14,6 +14,7 @@ const BuybackApplication = () => {
     productType: 'console', // 'console' or 'software'
     manufacturer: '',
     console: '',
+    consoleCustomName: '', // その他（手入力）用のカスタム機種名
     color: '', // カラー（任意）
     softwareName: '',
     condition: '',
@@ -42,6 +43,7 @@ const BuybackApplication = () => {
       ...currentItem,
       manufacturer: manufacturerValue,
       console: '', // 機種選択をリセット
+      consoleCustomName: '', // カスタム機種名もリセット
       managementNumbers: [] // 管理番号もリセット
     });
     
@@ -56,7 +58,8 @@ const BuybackApplication = () => {
   const handleConsoleChange = (consoleValue) => {
     setCurrentItem({
       ...currentItem,
-      console: consoleValue
+      console: consoleValue,
+      consoleCustomName: '' // 機種変更時にカスタム名をリセット
     });
 
     // 機種が選択されたら数量分の管理番号を自動生成
@@ -113,6 +116,12 @@ const BuybackApplication = () => {
       return;
     }
 
+    // その他（手入力）の場合は機種名の入力必須
+    if (currentItem.console === 'other-manual' && (!currentItem.consoleCustomName || currentItem.consoleCustomName.trim() === '')) {
+      alert('機種名を入力してください');
+      return;
+    }
+
     // C評価の場合は備考必須
     if (currentItem.condition === 'C' && (!currentItem.conditionNotes || currentItem.conditionNotes.trim() === '')) {
       alert('C評価の場合は、状態の詳細を備考欄に記入してください');
@@ -132,7 +141,10 @@ const BuybackApplication = () => {
     }
 
     const manufacturerLabel = manufacturers.find(m => m.value === currentItem.manufacturer)?.label;
-    const consoleLabel = availableConsoles.find(c => c.value === currentItem.console)?.label;
+    // その他（手入力）の場合は、カスタム入力値を使用
+    const consoleLabel = currentItem.console === 'other-manual' 
+      ? currentItem.consoleCustomName 
+      : availableConsoles.find(c => c.value === currentItem.console)?.label;
     const conditionLabel = conditions.find(c => c.value === currentItem.condition)?.label;
     const colorLabel = currentItem.color || ''; // カラーは任意なのでラベルも任意
     const accessoriesLabel = currentItem.accessories ? accessories.find(a => a.value === currentItem.accessories)?.label : '';
@@ -153,6 +165,7 @@ const BuybackApplication = () => {
       productType: 'console',
       manufacturer: '',
       console: '',
+      consoleCustomName: '',
       color: '',
       softwareName: '',
       condition: '',
@@ -311,7 +324,7 @@ const BuybackApplication = () => {
               </select>
             </div>
 
-            <div className="form-group">
+            <div className="form-group console-field">
               <label>🎮 ゲーム機種 *</label>
               <select 
                 value={currentItem.console} 
@@ -324,6 +337,18 @@ const BuybackApplication = () => {
                 ))}
               </select>
             </div>
+
+            {currentItem.console === 'other-manual' && (
+              <div className="form-group console-custom-field">
+                <label>✏️ 機種名を入力してください *</label>
+                <input
+                  type="text"
+                  value={currentItem.consoleCustomName}
+                  onChange={(e) => setCurrentItem({...currentItem, consoleCustomName: e.target.value})}
+                  placeholder="例: セガサターン白"
+                />
+              </div>
+            )}
 
             {currentItem.productType === 'console' && (
               <div className="form-group color-field">

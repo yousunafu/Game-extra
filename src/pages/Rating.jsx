@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { manufacturers, colors, conditions, accessories } from '../data/gameConsoles';
 import { getAllConsoles } from '../utils/productMaster';
-import { generateManagementNumber } from '../utils/productCodeGenerator';
+import { generateManagementNumber, generateProductCode } from '../utils/productCodeGenerator';
+import { getBuybackBasePrice } from '../utils/priceCalculator';
 import './Rating.css';
 
 // 付属品を短く表示する関数
@@ -201,15 +202,27 @@ const Rating = () => {
     setShowAddItem(false);
   };
 
-  // 査定ランク変更
+  // 査定ランク変更（基準価格の自動設定付き）
   const handleRankChange = (itemId, rank) => {
     const updatedApplications = applications.map((app, index) => {
       if (index === selectedApplication) {
         return {
           ...app,
-          items: app.items.map(item =>
-            item.id === itemId ? { ...item, assessedRank: rank } : item
-          )
+          items: app.items.map(item => {
+            if (item.id === itemId) {
+              // 機種コードを生成して基準価格を取得
+              const productCode = generateProductCode(item.manufacturer, item.console, item.productType);
+              const basePrice = getBuybackBasePrice(productCode, rank);
+              
+              // 基準価格が設定されている場合は自動入力、なければ現在の価格を維持
+              return { 
+                ...item, 
+                assessedRank: rank,
+                buybackPrice: basePrice > 0 ? basePrice : (item.buybackPrice || 0)
+              };
+            }
+            return item;
+          })
         };
       }
       return app;

@@ -11,6 +11,7 @@ const SalesRequest = () => {
     productType: 'console',
     manufacturer: '',
     console: '',
+    consoleCustomName: '', // For "Other (Manual Input)"
     color: '',
     softwareName: '',
     condition: '',
@@ -90,7 +91,8 @@ const SalesRequest = () => {
     setCurrentItem({
       ...currentItem,
       manufacturer: manufacturerValue,
-      console: ''
+      console: '',
+      consoleCustomName: '' // Reset custom name
     });
     
     if (manufacturerValue && allGameConsoles[manufacturerValue]) {
@@ -163,6 +165,12 @@ const SalesRequest = () => {
       return;
     }
 
+    // Validation for "Other (Manual Input)"
+    if (currentItem.console === 'other-manual' && (!currentItem.consoleCustomName || currentItem.consoleCustomName.trim() === '')) {
+      alert('Please enter the model name');
+      return;
+    }
+
     if (currentItem.productType === 'software' && !currentItem.softwareName) {
       alert('Please enter software name');
       return;
@@ -171,7 +179,10 @@ const SalesRequest = () => {
     const manufacturerLabelJP = manufacturers.find(m => m.value === currentItem.manufacturer)?.label;
     const manufacturerLabel = manufacturersEN[currentItem.manufacturer] || manufacturerLabelJP;
     const consoleLabelJP = availableConsoles.find(c => c.value === currentItem.console)?.label;
-    const consoleLabel = consolesEN[consoleLabelJP] || consoleLabelJP;
+    // Use custom name if "Other (Manual Input)" is selected
+    const consoleLabel = currentItem.console === 'other-manual' 
+      ? currentItem.consoleCustomName 
+      : (consolesEN[consoleLabelJP] || consoleLabelJP);
     const colorLabel = currentItem.color ? (colorsEN[currentItem.color] || currentItem.color) : '';
     
     const conditionLabels = {
@@ -216,6 +227,7 @@ const SalesRequest = () => {
       productType: 'console',
       manufacturer: '',
       console: '',
+      consoleCustomName: '',
       color: '',
       softwareName: '',
       condition: '',
@@ -326,7 +338,7 @@ const SalesRequest = () => {
             <label>🎮 Model</label>
             <select 
               value={currentItem.console} 
-              onChange={(e) => setCurrentItem({...currentItem, console: e.target.value})}
+              onChange={(e) => setCurrentItem({...currentItem, console: e.target.value, consoleCustomName: ''})}
               disabled={!currentItem.manufacturer}
             >
               <option value="">Please select</option>
@@ -337,6 +349,18 @@ const SalesRequest = () => {
               ))}
             </select>
           </div>
+
+          {currentItem.console === 'other-manual' && (
+            <div className="form-group">
+              <label>✏️ Enter Model Name</label>
+              <input
+                type="text"
+                value={currentItem.consoleCustomName}
+                onChange={(e) => setCurrentItem({...currentItem, consoleCustomName: e.target.value})}
+                placeholder="Ex: Sega Saturn White"
+              />
+            </div>
+          )}
 
           {currentItem.productType === 'console' && (
             <div className="form-group form-group-small">
