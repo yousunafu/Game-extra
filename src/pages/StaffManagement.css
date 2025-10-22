@@ -23,6 +23,8 @@
 
 .action-bar {
   margin-bottom: 30px;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .create-staff-btn {
@@ -104,32 +106,42 @@
 }
 
 .btn-cancel {
-  padding: 10px 24px;
-  border: 2px solid #95a5a6;
-  background-color: white;
-  color: #7f8c8d;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.3s;
+  padding: 10px 24px !important;
+  border: 2px solid #95a5a6 !important;
+  background-color: white !important;
+  color: #7f8c8d !important;
+  border-radius: 6px !important;
+  font-size: 14px !important;
+  font-weight: bold !important;
+  cursor: pointer !important;
+  transition: all 0.3s !important;
+  width: 180px !important;
+  min-width: 180px !important;
+  max-width: 180px !important;
+  text-align: center !important;
+  box-sizing: border-box !important;
 }
 
 .btn-cancel:hover {
-  background-color: #ecf0f1;
-  border-color: #7f8c8d;
+  background-color: #ecf0f1 !important;
+  border-color: #7f8c8d !important;
 }
 
 .btn-submit {
-  padding: 10px 24px;
-  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+  padding: 10px 24px !important;
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%) !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 6px !important;
+  font-size: 14px !important;
+  font-weight: bold !important;
+  cursor: pointer !important;
+  transition: transform 0.2s, box-shadow 0.2s !important;
+  width: 180px !important;
+  min-width: 180px !important;
+  max-width: 180px !important;
+  text-align: center !important;
+  box-sizing: border-box !important;
 }
 
 .btn-submit:hover:not(:disabled) {

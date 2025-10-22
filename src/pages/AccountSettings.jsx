@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import './AccountSettings.css';
 
 const AccountSettings = () => {
-  const { user, updateUser, isOverseasCustomer } = useAuth();
+  const { user, updateUser, isOverseasCustomer, isStaff, isAdmin, isManager } = useAuth();
   
   const [formData, setFormData] = useState({
     name: user?.name || '',
@@ -14,7 +14,20 @@ const AccountSettings = () => {
     postalCode: user?.postalCode || '',
     address: user?.address || '',
     phone: user?.phone || '',
-    email: user?.email || ''
+    email: user?.email || '',
+    department: user?.department || '',
+    employeeId: user?.employeeId || '',
+    // 会社情報（見積書用）
+    companyInfoName: user?.companyInfoName || '株式会社ゲーム買取センター',
+    companyInfoNameEn: user?.companyInfoNameEn || 'Game Trading Center Co., Ltd.',
+    companyInfoPostalCode: user?.companyInfoPostalCode || '〒160-0022',
+    companyInfoAddress: user?.companyInfoAddress || '東京都新宿区新宿3-1-1',
+    companyInfoAddressEn: user?.companyInfoAddressEn || '3-1-1 Shinjuku, Shinjuku-ku, Tokyo 160-0022, Japan',
+    companyInfoPhone: user?.companyInfoPhone || 'TEL: 03-1234-5678',
+    companyInfoPhoneEn: user?.companyInfoPhoneEn || 'TEL: +81-3-1234-5678',
+    companyInfoEmail: user?.companyInfoEmail || 'info@game-kaitori.jp',
+    companyInfoLicense: user?.companyInfoLicense || '古物商許可証：東京都公安委員会 第123456789号',
+    companyInfoLicenseEn: user?.companyInfoLicenseEn || 'Used Goods Business License: Tokyo Metropolitan Police No. 123456789'
   });
 
   const [passwordData, setPasswordData] = useState({
@@ -77,6 +90,20 @@ const AccountSettings = () => {
   };
 
   const validateForm = () => {
+    // スタッフ・マネージャー・管理者の場合
+    if (isStaff || isAdmin || isManager) {
+      if (!formData.name || !formData.email) {
+        setError('必須項目を全て入力してください');
+        return false;
+      }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email)) {
+        setError('有効なメールアドレスを入力してください');
+        return false;
+      }
+      return true;
+    }
+
     // 海外バイヤーの場合は簡易チェック
     if (isOverseasCustomer) {
       if (!formData.name || !formData.phone || !formData.postalCode || !formData.address || !formData.email) {
@@ -223,18 +250,62 @@ const AccountSettings = () => {
         <div className="settings-section">
           <h2>{isOverseasCustomer ? 'Profile Information' : 'プロフィール情報'}</h2>
           <form onSubmit={handleSubmit} className="settings-form">
-            <div className="form-group form-group-half">
-              <label htmlFor="name">{isOverseasCustomer ? 'Name *' : 'お名前 *'}</label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                disabled={loading}
-                required
-              />
-            </div>
+            {/* スタッフ・マネージャー・管理者向けの項目 */}
+            {isStaff ? (
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="name">{isOverseasCustomer ? 'Name *' : 'お名前 *'}</label>
+                  <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    disabled={loading}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="department">所属部署</label>
+                  <input
+                    type="text"
+                    id="department"
+                    name="department"
+                    value={formData.department}
+                    onChange={handleChange}
+                    placeholder="査定部"
+                    disabled={loading}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="employeeId">社員番号</label>
+                  <input
+                    type="text"
+                    id="employeeId"
+                    name="employeeId"
+                    value={formData.employeeId}
+                    onChange={handleChange}
+                    placeholder="EMP001"
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="form-group form-group-half">
+                <label htmlFor="name">{isOverseasCustomer ? 'Name *' : 'お名前 *'}</label>
+                <input
+                  type="text"
+                  id="name"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  disabled={loading}
+                  required
+                />
+              </div>
+            )}
 
             {isOverseasCustomer && (
               <div className="form-group form-group-half">
@@ -372,6 +443,140 @@ const AccountSettings = () => {
             </button>
           </form>
         </div>
+
+        {/* 会社情報（見積書用） - 管理者・マネージャーのみ */}
+        {(isAdmin || isManager) && (
+          <div className="settings-section">
+            <h2>会社情報（見積書用）</h2>
+            <form onSubmit={handleSubmit} className="settings-form">
+              <div className="form-group">
+                <label htmlFor="companyInfoName">会社名（日本語）</label>
+                <input
+                  type="text"
+                  id="companyInfoName"
+                  name="companyInfoName"
+                  value={formData.companyInfoName}
+                  onChange={handleChange}
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="companyInfoNameEn">会社名（英語）</label>
+                <input
+                  type="text"
+                  id="companyInfoNameEn"
+                  name="companyInfoNameEn"
+                  value={formData.companyInfoNameEn}
+                  onChange={handleChange}
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="companyInfoPostalCode">郵便番号</label>
+                  <input
+                    type="text"
+                    id="companyInfoPostalCode"
+                    name="companyInfoPostalCode"
+                    value={formData.companyInfoPostalCode}
+                    onChange={handleChange}
+                    disabled={loading}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="companyInfoPhone">電話番号（日本語）</label>
+                  <input
+                    type="text"
+                    id="companyInfoPhone"
+                    name="companyInfoPhone"
+                    value={formData.companyInfoPhone}
+                    onChange={handleChange}
+                    disabled={loading}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="companyInfoPhoneEn">電話番号（英語）</label>
+                  <input
+                    type="text"
+                    id="companyInfoPhoneEn"
+                    name="companyInfoPhoneEn"
+                    value={formData.companyInfoPhoneEn}
+                    onChange={handleChange}
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="companyInfoAddress">住所（日本語）</label>
+                <input
+                  type="text"
+                  id="companyInfoAddress"
+                  name="companyInfoAddress"
+                  value={formData.companyInfoAddress}
+                  onChange={handleChange}
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="companyInfoAddressEn">住所（英語）</label>
+                <input
+                  type="text"
+                  id="companyInfoAddressEn"
+                  name="companyInfoAddressEn"
+                  value={formData.companyInfoAddressEn}
+                  onChange={handleChange}
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="companyInfoEmail">メールアドレス</label>
+                <input
+                  type="email"
+                  id="companyInfoEmail"
+                  name="companyInfoEmail"
+                  value={formData.companyInfoEmail}
+                  onChange={handleChange}
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="companyInfoLicense">古物商許可証（日本語）</label>
+                <input
+                  type="text"
+                  id="companyInfoLicense"
+                  name="companyInfoLicense"
+                  value={formData.companyInfoLicense}
+                  onChange={handleChange}
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="companyInfoLicenseEn">古物商許可証（英語）</label>
+                <input
+                  type="text"
+                  id="companyInfoLicenseEn"
+                  name="companyInfoLicenseEn"
+                  value={formData.companyInfoLicenseEn}
+                  onChange={handleChange}
+                  disabled={loading}
+                />
+              </div>
+
+              <button type="submit" className="update-button" disabled={loading}>
+                {loading ? '更新中...' : '会社情報を更新'}
+              </button>
+            </form>
+          </div>
+        )}
 
         <div className="settings-section">
           <h2>{isOverseasCustomer ? 'Change Password' : 'パスワード変更'}</h2>

@@ -137,12 +137,39 @@ const Sales = () => {
         setSalesStaffName('');
       }
       
+      // 在庫選択をリセット（新しいリクエスト用）
+      setSelectedInventories({});
+      
       // 見積もり中（pending）の場合は価格を自動計算
       if (currentReq.status === 'pending') {
         calculateAllPrices();
       }
     }
-  }, [selectedRequestNumber, currentReq?.requestNumber]);
+  }, [selectedRequestNumber]); // currentReq?.requestNumberを削除
+
+  // 基準価格の変更を監視して価格を再計算
+  useEffect(() => {
+    if (currentReq && currentReq.status === 'pending') {
+      const handleStorageChange = () => {
+        // 基準価格が変更された場合、価格を再計算
+        calculateAllPrices();
+      };
+
+      // localStorageの変更を監視
+      window.addEventListener('storage', handleStorageChange);
+
+      const handleBasePriceUpdate = (event) => {
+        console.log('基準価格が更新されました:', event.detail);
+        calculateAllPricesWithOverride(); // 強制更新で価格を再計算
+      };
+      window.addEventListener('basePriceUpdated', handleBasePriceUpdate);
+
+      return () => {
+        window.removeEventListener('storage', handleStorageChange);
+        window.removeEventListener('basePriceUpdated', handleBasePriceUpdate);
+      };
+    }
+  }, [currentReq?.status]); // currentReq?.requestNumberを削除
 
   // 在庫から利用可能数を取得
   const getAvailableStock = (item) => {
@@ -319,7 +346,7 @@ const Sales = () => {
   };
 
   // 全商品の価格を一括計算
-  const calculateAllPrices = () => {
+  const calculateAllPrices = (forceUpdate = false) => {
     if (!currentReq || !currentReq.customer) return;
     
     const calculations = {};
@@ -328,10 +355,39 @@ const Sales = () => {
       
       if (calc && calc.finalPrice > 0) {
         calculations[item.id] = calc;
-        // 価格が未設定の場合のみ自動設定
-        if (!item.quotedPrice || item.quotedPrice === 0) {
+        // 強制更新または価格が未設定の場合に自動設定（手動入力された価格は保護）
+        if (forceUpdate || !item.quotedPrice || item.quotedPrice === 0) {
           return { ...item, quotedPrice: calc.finalPrice };
         }
+      }
+      
+      return item;
+    });
+    
+    setPriceCalculations(calculations);
+    
+    // リクエストを更新
+    const updatedRequests = requests.map(req => 
+      req.requestNumber === selectedRequestNumber
+        ? { ...req, items: updatedItems }
+        : req
+    );
+    setRequests(updatedRequests);
+    localStorage.setItem('salesRequests', JSON.stringify(updatedRequests));
+  };
+
+  // 基準価格更新時の強制価格再計算（手動入力された価格も更新）
+  const calculateAllPricesWithOverride = () => {
+    if (!currentReq || !currentReq.customer) return;
+    
+    const calculations = {};
+    const updatedItems = currentReq.items.map(item => {
+      const calc = calculateItemPrice(item, currentReq.customer.email);
+      
+      if (calc && calc.finalPrice > 0) {
+        calculations[item.id] = calc;
+        // 基準価格が更新された場合は、手動入力された価格も更新
+        return { ...item, quotedPrice: calc.finalPrice };
       }
       
       return item;

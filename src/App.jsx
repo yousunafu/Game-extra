@@ -25,6 +25,7 @@ import Inventory from './pages/Inventory';
 import Ledger from './pages/Ledger';
 import Dashboard from './pages/Dashboard';
 import SalesAnalytics from './pages/SalesAnalytics';
+import UserManagement from './pages/UserManagement';
 import { insertMockAnalyticsData } from './utils/insertMockAnalyticsData';
 
 function AppContent() {
@@ -100,6 +101,14 @@ function AppContent() {
         <PrivateRoute allowedRoles={['admin', 'manager']}>
           <Layout>
             <PricingManagement />
+          </Layout>
+        </PrivateRoute>
+      } />
+      
+      <Route path="/sys/admin/user-management" element={
+        <PrivateRoute allowedRoles={['admin', 'manager']}>
+          <Layout>
+            <UserManagement />
           </Layout>
         </PrivateRoute>
       } />

@@ -198,6 +198,9 @@ const Layout = ({ children }) => {
                       <Link to="/sys/admin/product-management" className={isActive('/sys/admin/product-management') ? 'active' : ''}>
                         🎮 商品マスタ
                       </Link>
+                      <Link to="/sys/admin/user-management" className={isActive('/sys/admin/user-management') ? 'active' : ''}>
+                        👤 ユーザー管理
+                      </Link>
                     </div>
                   )}
                 </div>

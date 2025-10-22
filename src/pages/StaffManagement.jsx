@@ -212,36 +212,6 @@ const StaffManagement = () => {
 
             <div className="form-row">
               <div className="form-group">
-                <label htmlFor="password">パスワード *</label>
-                <input
-                  type="password"
-                  id="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  placeholder="8文字以上"
-                  disabled={loading}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="confirmPassword">パスワード確認 *</label>
-                <input
-                  type="password"
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  placeholder="もう一度入力"
-                  disabled={loading}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
                 <label htmlFor="role">役割 *</label>
                 <select
                   id="role"
@@ -269,9 +239,7 @@ const StaffManagement = () => {
                   disabled={loading}
                 />
               </div>
-            </div>
 
-            <div className="form-row">
               <div className="form-group">
                 <label htmlFor="employeeId">社員番号（任意）</label>
                 <input
@@ -282,6 +250,36 @@ const StaffManagement = () => {
                   onChange={handleChange}
                   placeholder="EMP001"
                   disabled={loading}
+                />
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="password">パスワード *</label>
+                <input
+                  type="password"
+                  id="password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  placeholder="8文字以上"
+                  disabled={loading}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="confirmPassword">パスワード確認 *</label>
+                <input
+                  type="password"
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  placeholder="もう一度入力"
+                  disabled={loading}
+                  required
                 />
               </div>
             </div>

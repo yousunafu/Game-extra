@@ -42,6 +42,17 @@ const SalesAnalytics = () => {
     const sales = JSON.parse(localStorage.getItem('salesLedger') || '[]');
     const buyback = JSON.parse(localStorage.getItem('allApplications') || '[]');
     
+    console.log('📊 販売分析データ読み込み:');
+    console.log('  - 販売データ:', sales.length, '件');
+    console.log('  - 買取データ:', buyback.length, '件');
+    
+    if (sales.length > 0) {
+      console.log('  - 販売データサンプル:', sales[0]);
+    }
+    if (buyback.length > 0) {
+      console.log('  - 買取データサンプル:', buyback[0]);
+    }
+    
     setSalesData(sales);
     setBuybackData(buyback);
   };
@@ -435,9 +446,10 @@ const SellerList = ({ buybackData, onBack, onSelectSeller }) => {
       sellers[email].applications.push(app);
       
       app.items.forEach(item => {
-        if (item.estimatedPrice) {
+        const buybackPrice = item.buybackPrice || item.estimatedPrice || 0;
+        if (buybackPrice > 0) {
           sellers[email].totalItems += item.quantity;
-          sellers[email].totalAmount += item.estimatedPrice * item.quantity;
+          sellers[email].totalAmount += buybackPrice * item.quantity;
         }
       });
       
@@ -453,6 +465,13 @@ const SellerList = ({ buybackData, onBack, onSelectSeller }) => {
   };
 
   const sellerList = getSellerList();
+  
+  console.log('📤 セラー分析データ:');
+  console.log('  - 買取データ総数:', buybackData.length);
+  console.log('  - セラー数:', sellerList.length);
+  if (sellerList.length > 0) {
+    console.log('  - セラーサンプル:', sellerList[0]);
+  }
 
   // CSVエクスポート
   const handleExportCSV = () => {
@@ -583,7 +602,7 @@ const SellerDetail = ({ seller, buybackData, onBack }) => {
       }
       
       productStats[productKey].quantity += item.quantity;
-      productStats[productKey].amount += (item.estimatedPrice || 0) * item.quantity;
+      productStats[productKey].amount += (item.buybackPrice || item.estimatedPrice || 0) * item.quantity;
       productStats[productKey].count += 1;
       
       // 機種別集計（メーカーではなく商品名で）
@@ -632,7 +651,7 @@ const SellerDetail = ({ seller, buybackData, onBack }) => {
   // グラフ: 時系列推移
   const timeSeriesData = transactions.reverse().map(app => ({
     date: new Date(app.date).toLocaleDateString('ja-JP', { month: '2-digit', day: '2-digit' }),
-    amount: app.items.reduce((sum, item) => sum + (item.estimatedPrice || 0) * item.quantity, 0)
+    amount: app.items.reduce((sum, item) => sum + (item.buybackPrice || item.estimatedPrice || 0) * item.quantity, 0)
   }));
   
   const timeSeriesChartData = {
@@ -711,8 +730,8 @@ const SellerDetail = ({ seller, buybackData, onBack }) => {
           `${item.manufacturerLabel || item.manufacturer} ${item.consoleLabel || item.console}${item.color ? ' (' + item.color + ')' : ''}`,
           item.assessedRank || '',
           item.quantity,
-          item.estimatedPrice || 0,
-          (item.estimatedPrice || 0) * item.quantity
+          item.buybackPrice || item.estimatedPrice || 0,
+          (item.buybackPrice || item.estimatedPrice || 0) * item.quantity
         ].join(','));
       });
     });
@@ -827,7 +846,7 @@ const SellerDetail = ({ seller, buybackData, onBack }) => {
         <div className="transaction-list">
           {transactions.reverse().map((app, index) => {
             const totalAmount = app.items.reduce((sum, item) => 
-              sum + (item.estimatedPrice || 0) * item.quantity, 0
+              sum + (item.buybackPrice || item.estimatedPrice || 0) * item.quantity, 0
             );
             
             return (
@@ -859,7 +878,7 @@ const SellerDetail = ({ seller, buybackData, onBack }) => {
                         {item.color && ` (${item.color})`}
                       </span>
                       <span className="item-quantity">×{item.quantity}</span>
-                      <span className="item-price">¥{((item.estimatedPrice || 0) * item.quantity).toLocaleString()}</span>
+                      <span className="item-price">¥{((item.buybackPrice || item.estimatedPrice || 0) * item.quantity).toLocaleString()}</span>
                     </div>
                   ))}
                 </div>
@@ -904,8 +923,8 @@ const BuyerList = ({ salesData, onBack, onSelectBuyer }) => {
       }
       
       buyers[name].totalTransactions += 1;
-      buyers[name].totalSales += record.summary.totalSalesAmount;
-      buyers[name].totalProfit += record.summary.totalProfit;
+      buyers[name].totalSales += record.summary?.totalSalesAmount || 0;
+      buyers[name].totalProfit += record.summary?.totalProfit || 0;
       buyers[name].totalItems += record.items.reduce((sum, item) => sum + item.quantity, 0);
       buyers[name].records.push(record);
       
@@ -1054,8 +1073,8 @@ const BuyerDetail = ({ buyer, salesData, onBack }) => {
       }
       
       productStats[productKey].quantity += item.quantity;
-      productStats[productKey].sales += item.totalSalesAmount;
-      productStats[productKey].profit += item.totalProfit;
+      productStats[productKey].sales += item.totalSalesAmount || 0;
+      productStats[productKey].profit += item.totalProfit || 0;
       productStats[productKey].count += 1;
       
       // 商品名を取得（具体的な機種名）
@@ -1102,8 +1121,8 @@ const BuyerDetail = ({ buyer, salesData, onBack }) => {
   // グラフ: 時系列推移
   const timeSeriesData = transactions.reverse().map(record => ({
     date: new Date(record.soldDate).toLocaleDateString('ja-JP', { month: '2-digit', day: '2-digit' }),
-    sales: record.summary.totalSalesAmount,
-    profit: record.summary.totalProfit
+    sales: record.summary?.totalSalesAmount || 0,
+    profit: record.summary?.totalProfit || 0
   }));
   
   const timeSeriesChartData = {
@@ -1325,9 +1344,9 @@ const BuyerDetail = ({ buyer, salesData, onBack }) => {
                     </span>
                     <span className="item-name">{item.product}</span>
                     <span className="item-quantity">×{item.quantity}</span>
-                    <span className="item-price">¥{item.totalSalesAmount.toLocaleString()}</span>
+                    <span className="item-price">¥{(item.totalSalesAmount || 0).toLocaleString()}</span>
                     <span className="item-profit">
-                      利益: ¥{item.totalProfit.toLocaleString()}
+                      利益: ¥{(item.totalProfit || 0).toLocaleString()}
                     </span>
                   </div>
                 ))}
@@ -1335,10 +1354,10 @@ const BuyerDetail = ({ buyer, salesData, onBack }) => {
               
               <div className="transaction-total">
                 <div>
-                  <span>販売額: ¥{record.summary.totalSalesAmount.toLocaleString()}</span>
+                  <span>販売額: ¥{(record.summary?.totalSalesAmount || 0).toLocaleString()}</span>
                 </div>
                 <div>
-                  <span className="profit-text">利益: ¥{record.summary.totalProfit.toLocaleString()}</span>
+                  <span className="profit-text">利益: ¥{(record.summary?.totalProfit || 0).toLocaleString()}</span>
                 </div>
               </div>
             </div>
@@ -1371,8 +1390,8 @@ const ProductAnalysis = ({ salesData, buybackData, onBack }) => {
         }
         
         stats[key].totalSold += item.quantity;
-        stats[key].totalSales += item.totalSalesAmount;
-        stats[key].totalProfit += item.totalProfit;
+        stats[key].totalSales += item.totalSalesAmount || 0;
+        stats[key].totalProfit += item.totalProfit || 0;
       });
     });
     

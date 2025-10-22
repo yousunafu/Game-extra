@@ -37,6 +37,7 @@ const PricingManagement = () => {
     C: 0
   });
   const [allBasePrices, setAllBasePrices] = useState({});
+  const [editingProduct, setEditingProduct] = useState(null); // 編集中の商品コード
   
   // バイヤー調整タブ
   const [selectedBuyer, setSelectedBuyer] = useState('');
@@ -104,13 +105,71 @@ const PricingManagement = () => {
     if (priceMode === 'sales') {
       setAllBasePrice(productCode, basePriceForm);
       setAllBasePrices(getAllBasePrices());
+      
+      // 販売基準価格更新時にカスタムイベントを発火
+      window.dispatchEvent(new CustomEvent('basePriceUpdated', {
+        detail: { productCode, prices: basePriceForm }
+      }));
     } else if (priceMode === 'buyback') {
       setAllBuybackBasePrice(productCode, basePriceForm);
       setAllBasePrices(getAllBuybackBasePrices());
     }
     
-    setSuccess(`基準価格を保存しました（${productCode}）`);
+    const action = editingProduct ? '更新' : '保存';
+    setSuccess(`基準価格を${action}しました（${productCode}）`);
     setTimeout(() => setSuccess(''), 3000);
+    
+    // 編集モードを終了
+    setEditingProduct(null);
+    setBasePriceForm({ S: 0, A: 0, B: 0, C: 0 });
+    setSelectedManufacturer('');
+    setSelectedConsole('');
+  };
+
+  // 商品編集機能
+  const handleEditProduct = (productCode) => {
+    const info = getConsoleInfo(productCode);
+    setSelectedManufacturer(info.manufacturerKey);
+    setSelectedConsole(info.consoleKey);
+    setBasePriceForm(allBasePrices[productCode] || { S: 0, A: 0, B: 0, C: 0 });
+    setEditingProduct(productCode);
+
+    if (info.manufacturerKey && allGameConsoles[info.manufacturerKey]) {
+      setAvailableConsoles(allGameConsoles[info.manufacturerKey]);
+    }
+    
+    // フォームにスクロール
+    const formElement = document.querySelector('.base-price-form');
+    if (formElement) {
+      formElement.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  // 編集キャンセル
+  const handleCancelEdit = () => {
+    setEditingProduct(null);
+    setBasePriceForm({ S: 0, A: 0, B: 0, C: 0 });
+    setSelectedManufacturer('');
+    setSelectedConsole('');
+  };
+
+  // 商品コードからメーカー・機種情報を取得
+  const getConsoleInfo = (productCode) => {
+    for (const mfr of manufacturers) {
+      const consoles = allGameConsoles[mfr.value] || [];
+      for (const console of consoles) {
+        const code = generateProductCode(mfr.value, console.value, 'console');
+        if (code === productCode) {
+          return {
+            manufacturer: mfr.label,
+            console: console.label,
+            manufacturerKey: mfr.value,
+            consoleKey: console.value
+          };
+        }
+      }
+    }
+    return { manufacturer: '不明', console: '不明', manufacturerKey: '', consoleKey: '' };
   };
 
   // バイヤー/お客様調整：選択時
@@ -200,23 +259,6 @@ const PricingManagement = () => {
     setTimeout(() => setSuccess(''), 3000);
   };
 
-  // 機種コードから機種情報を取得
-  const getConsoleInfo = (productCode) => {
-    // 全機種から検索
-    for (const mfr of manufacturers) {
-      const consoles = allGameConsoles[mfr.value] || [];
-      for (const console of consoles) {
-        const code = generateProductCode(mfr.value, console.value, 'console');
-        if (code === productCode) {
-          return {
-            manufacturer: mfr.label,
-            console: console.label
-          };
-        }
-      }
-    }
-    return { manufacturer: '不明', console: '不明' };
-  };
 
   // 調整の説明文を生成
   const getAdjustmentDescription = (adjustment) => {
@@ -432,9 +474,16 @@ const PricingManagement = () => {
                   </div>
                 </div>
 
-                <button className="btn-save-price" onClick={handleSaveBasePrice}>
-                  ✓ 基準価格を保存
-                </button>
+                <div className="form-actions">
+                  <button className="btn-save-price" onClick={handleSaveBasePrice}>
+                    ✓ {editingProduct ? '基準価格を更新' : '基準価格を保存'}
+                  </button>
+                  {editingProduct && (
+                    <button className="cancel-edit-btn" onClick={handleCancelEdit}>
+                      ❌ 編集をキャンセル
+                    </button>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -449,10 +498,18 @@ const PricingManagement = () => {
                 {Object.entries(allBasePrices).map(([productCode, prices]) => {
                   const info = getConsoleInfo(productCode);
                   return (
-                    <div key={productCode} className="base-price-card">
+                    <div key={productCode} className="base-price-card clickable-card" onClick={() => handleEditProduct(productCode)}>
                       <div className="card-header">
                         <h3>{info.manufacturer} - {info.console}</h3>
-                        <span className="product-code-badge">{productCode}</span>
+                        <div className="card-actions">
+                          <span className="product-code-badge">{productCode}</span>
+                          <button className="edit-btn" onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditProduct(productCode);
+                          }}>
+                            ✏️ 編集
+                          </button>
+                        </div>
                       </div>
                       <div className="price-grid">
                         <div className="price-item">
