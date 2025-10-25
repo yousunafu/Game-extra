@@ -26,6 +26,8 @@ import Ledger from './pages/Ledger';
 import Dashboard from './pages/Dashboard';
 import SalesAnalytics from './pages/SalesAnalytics';
 import UserManagement from './pages/UserManagement';
+import ZaicoSyncSettings from './pages/ZaicoSyncSettings';
+import ApiKeyChecker from './components/ApiKeyChecker';
 import { insertMockAnalyticsData } from './utils/insertMockAnalyticsData';
 
 function AppContent() {
@@ -45,7 +47,8 @@ function AppContent() {
   }, []);
 
   return (
-    <Routes>
+    <ApiKeyChecker>
+      <Routes>
       {/* ログイン画面（3つ） */}
       <Route path="/login" element={
         isAuthenticated ? <Navigate to="/" replace /> : <CustomerLogin />
@@ -209,8 +212,17 @@ function AppContent() {
         </PrivateRoute>
       } />
       
+      <Route path="/settings/zaico-sync" element={
+        <PrivateRoute allowedRoles={['admin', 'manager']}>
+          <Layout>
+            <ZaicoSyncSettings />
+          </Layout>
+        </PrivateRoute>
+      } />
+      
       <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+      </Routes>
+    </ApiKeyChecker>
   );
 }
 

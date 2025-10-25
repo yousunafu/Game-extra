@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { manufacturers, colors } from '../data/gameConsoles';
+import { manufacturers, colors, gameConsoles } from '../data/gameConsoles';
 import { getAllConsoles } from '../utils/productMaster';
 import { generateProductCode } from '../utils/productCodeGenerator';
 import { calculateBuyerPrice } from '../utils/priceCalculator';
+import { createOutboundItemInZaico, logSyncActivity } from '../utils/zaicoApi';
 import './Sales.css';
 
 // 担当者リスト（Rating.jsxと同じ）
@@ -150,9 +151,13 @@ const Sales = () => {
   // 基準価格の変更を監視して価格を再計算
   useEffect(() => {
     if (currentReq && currentReq.status === 'pending') {
-      const handleStorageChange = () => {
-        // 基準価格が変更された場合、価格を再計算
-        calculateAllPrices();
+      const handleStorageChange = (e) => {
+        // 基準価格関連のキーの変更のみを監視
+        if (e.key === 'basePrices' || e.key === 'buyerAdjustments') {
+          console.log('基準価格が変更されました:', e.key);
+          // 手動入力された価格は保護して再計算
+          calculateAllPrices();
+        }
       };
 
       // localStorageの変更を監視
@@ -169,7 +174,7 @@ const Sales = () => {
         window.removeEventListener('basePriceUpdated', handleBasePriceUpdate);
       };
     }
-  }, [currentReq?.status]); // currentReq?.requestNumberを削除
+  }, [currentReq?.requestNumber, currentReq?.status]); // requestNumberを追加してより厳密に
 
   // 在庫から利用可能数を取得
   const getAvailableStock = (item) => {
@@ -315,7 +320,12 @@ const Sales = () => {
           ...req,
           items: req.items.map(item => 
             item.id === itemId 
-              ? { ...item, [field]: value }
+              ? { 
+                  ...item, 
+                  [field]: value,
+                  // 価格入力時はタイムスタンプを追加
+                  ...(field === 'quotedPrice' ? { lastPriceUpdate: new Date().toISOString() } : {})
+                }
               : item
           )
         };
@@ -355,9 +365,18 @@ const Sales = () => {
       
       if (calc && calc.finalPrice > 0) {
         calculations[item.id] = calc;
-        // 強制更新または価格が未設定の場合に自動設定（手動入力された価格は保護）
-        if (forceUpdate || !item.quotedPrice || item.quotedPrice === 0) {
-          return { ...item, quotedPrice: calc.finalPrice };
+        // 手動入力された価格の保護を強化
+        const hasManualPrice = item.quotedPrice && item.quotedPrice > 0;
+        const isRecentlyUpdated = item.lastPriceUpdate && 
+          (Date.now() - new Date(item.lastPriceUpdate).getTime()) < 5000; // 5秒以内の更新
+        
+        // 強制更新または価格が未設定の場合のみ自動設定
+        if (forceUpdate || (!hasManualPrice && !isRecentlyUpdated)) {
+          return { 
+            ...item, 
+            quotedPrice: calc.finalPrice,
+            lastPriceUpdate: new Date().toISOString()
+          };
         }
       }
       
@@ -453,7 +472,7 @@ const Sales = () => {
   };
 
   // 発送完了処理（在庫減算 + 古物台帳記録）
-  const handleCompleteSale = (shippedDate, trackingNumber) => {
+  const handleCompleteSale = async (shippedDate, trackingNumber) => {
     // 在庫選択のチェック
     const mismatches = [];
     currentReq.items.forEach(item => {
@@ -474,8 +493,60 @@ const Sales = () => {
     const confirmAction = window.confirm('発送完了にしますか？\n在庫が減算され、古物台帳に記録されます。\nこの操作は取り消せません。');
     if (!confirmAction) return;
 
-    // 在庫から減算
+    // 在庫データを取得（減算前）
     const inventoryData = JSON.parse(localStorage.getItem('inventory') || '[]');
+    
+    // zaico連携処理（在庫減算前に行う）
+    try {
+      for (const item of currentReq.items) {
+        const selectedInvs = selectedInventories[item.id] || [];
+        const salesPricePerUnit = item.quotedPrice;
+        
+        for (const sel of selectedInvs) {
+          const inv = inventoryData.find(inv => inv.id === sel.invId);
+          if (inv) {
+            const zaicoSaleData = {
+              title: inv.title || inv.consoleLabel || inv.softwareName || 'ゲーム商品',
+              inventoryId: inv.id,
+              quantity: sel.quantity,
+              salePrice: salesPricePerUnit,
+              customerName: currentReq.customer.name,
+              buyerName: currentReq.customer.name,
+              salesChannel: '海外販売',
+              shippingCountry: currentReq.customer.country || '海外',
+              shippingFee: currentReq.shippingFee || 0,
+              notes: `海外販売: ${currentReq.requestNumber} | 査定ランク: ${inv.assessedRank || ''} | 担当者: ${currentReq.salesStaffName || ''}`
+            };
+            
+            console.log('=== 出庫処理デバッグ情報 ===');
+            console.log('zaicoSaleData:', zaicoSaleData);
+            console.log('在庫データ:', inv);
+            console.log('zaicoId:', inv.zaicoId);
+            
+            await createOutboundItemInZaico(zaicoSaleData);
+            
+            logSyncActivity('overseas_sale_create', 'success', {
+              requestNumber: currentReq.requestNumber,
+              itemId: inv.id,
+              customerName: currentReq.customer.name,
+              soldPrice: salesPricePerUnit,
+              quantity: sel.quantity,
+              method: 'overseas_outbound_with_customer_and_price'
+            });
+          }
+        }
+      }
+      
+      console.log('zaico海外販売出庫データ作成成功');
+    } catch (error) {
+      logSyncActivity('overseas_sale_create', 'error', {
+        requestNumber: currentReq.requestNumber,
+        error: error.message
+      });
+      console.error('zaico海外販売出庫データ作成エラー:', error);
+    }
+    
+    // 在庫から減算
     const salesLedger = JSON.parse(localStorage.getItem('salesLedger') || '[]');
     
     const salesRecord = {
@@ -580,6 +651,8 @@ const Sales = () => {
     setRequests(updatedRequests);
     localStorage.setItem('salesRequests', JSON.stringify(updatedRequests));
 
+    // zaico連携処理は在庫減算前に実行済み
+
     alert(`発送完了しました。\n在庫を更新し、古物台帳に記録しました。\n\n利益: ¥${salesRecord.summary.totalProfit.toLocaleString()}`);
     setShowInventorySelection(false);
   };
@@ -600,6 +673,39 @@ const Sales = () => {
     window.print();
   };
 
+  // インボイス印刷
+  const handlePrintInvoice = () => {
+    if (!currentReq || !currentReq.items || currentReq.items.length === 0) {
+      alert('印刷する商品がありません');
+      return;
+    }
+    
+    // インボイス印刷用のスタイルを一時的に適用
+    const printStyle = document.createElement('style');
+    printStyle.textContent = `
+      @media print {
+        .estimate-sheet { display: none !important; }
+        .invoice-sheet { display: block !important; }
+        .no-print { display: none !important; }
+      }
+    `;
+    document.head.appendChild(printStyle);
+    
+    // インボイス印刷用のクラスを追加
+    const invoiceElement = document.querySelector('.invoice-sheet');
+    if (invoiceElement) {
+      invoiceElement.style.display = 'block';
+    }
+    
+    window.print();
+    
+    // 印刷後、スタイルを削除
+    document.head.removeChild(printStyle);
+    if (invoiceElement) {
+      invoiceElement.style.display = 'none';
+    }
+  };
+
   // 印刷用の送料・配送期間取得
   const getPrintShippingFee = () => {
     return currentReq.status === 'pending' ? tempShippingFee : (currentReq.shippingFee || 0);
@@ -614,6 +720,51 @@ const Sales = () => {
     if (!currentReq || !currentReq.items) return 0;
     return currentReq.items.reduce((sum, item) => {
       return sum + (item.quotedPrice || 0) * item.quantity;
+    }, 0);
+  };
+
+  // 商品の原産国を取得
+  const getCountryOfOrigin = (item) => {
+    if (item.productType === 'software') {
+      // ソフトウェアの場合は親機種の原産国を取得
+      const consoleData = Object.values(gameConsoles).flat().find(console => 
+        console.value === item.console
+      );
+      return consoleData?.country || 'China';
+    } else {
+      // ハードウェアの場合は直接取得
+      const consoleData = Object.values(gameConsoles).flat().find(console => 
+        console.value === item.console
+      );
+      return consoleData?.country || 'China';
+    }
+  };
+
+  // インボイス印刷用の発送情報を取得
+  const getInvoiceShippingInfo = () => {
+    // 発送完了済みの場合は保存された値を使用
+    if (currentReq.shippedDate && currentReq.trackingNumber) {
+      return {
+        shippedDate: currentReq.shippedDate,
+        trackingNumber: currentReq.trackingNumber
+      };
+    }
+    
+    // 発送完了前の場合は入力フィールドから取得
+    const dateElement = document.getElementById('shippedDate');
+    const trackingElement = document.getElementById('trackingNumber');
+    
+    return {
+      shippedDate: dateElement?.value || getTodayJST(),
+      trackingNumber: trackingElement?.value || ''
+    };
+  };
+
+  // 総重量を計算
+  const calculateTotalWeight = () => {
+    if (!currentReq || !currentReq.items) return 0;
+    return currentReq.items.reduce((sum, item) => {
+      return sum + (item.weight || 0);
     }, 0);
   };
 
@@ -1069,6 +1220,17 @@ const Sales = () => {
                               選択済み: {selectedQty} / {needed}台 {isComplete && '✅'} {isOverSelected && '⚠️ 超過'}
                             </span>
                           </div>
+                          <div className="weight-input-section">
+                            <label>重量 (kg):</label>
+                            <input
+                              type="number"
+                              step="0.1"
+                              placeholder="重量を入力"
+                              value={item.weight || ''}
+                              onChange={(e) => handleItemUpdate(item.id, 'weight', parseFloat(e.target.value) || 0)}
+                              className="weight-input"
+                            />
+                          </div>
                         </div>
 
                         {inventoryList.length === 0 ? (
@@ -1086,8 +1248,8 @@ const Sales = () => {
                                 : inv.supplier?.name || '不明';
 
                               return (
-                                <div key={inv.id} className="inventory-row">
-                                  <div className="inventory-info">
+                                <div key={inv.id} className="inventory-row-compact">
+                                  <div className="inventory-info-compact">
                                     <span className={`rank-badge rank-${inv.assessedRank.toLowerCase()}`}>
                                       {inv.assessedRank}
                                     </span>
@@ -1095,27 +1257,27 @@ const Sales = () => {
                                       {inv.sourceType === 'customer' ? '👤' : '🏢'} {sourceName}
                                     </span>
                                     <span className="inventory-price">¥{price.toLocaleString()}/台</span>
-                                    <span className="inventory-stock">在庫: {inv.quantity}台</span>
+                                    <span className="inventory-stock">在庫:{inv.quantity}台</span>
                                     {inv.registeredDate && (
                                       <span className="inventory-date">
-                                        仕入日: {new Date(inv.registeredDate).toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' })}
+                                        仕入日:{new Date(inv.registeredDate).toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' })}
                                       </span>
                                     )}
                                   </div>
-                                  <div className="inventory-select">
-                                    <label>使用台数:</label>
+                                  <div className="inventory-select-compact">
                                     <input
                                       type="number"
                                       min="0"
                                       max={inv.quantity}
                                       value={selectedFromThis}
                                       onChange={(e) => handleSelectInventory(item.id, inv.id, parseInt(e.target.value) || 0, item.quantity)}
-                                      className="quantity-input"
+                                      className="quantity-input-compact"
+                                      placeholder="0"
                                     />
                                     <span>/ {inv.quantity}台</span>
                                     {selectedFromThis > 0 && (
                                       <button
-                                        className="btn-show-management-numbers"
+                                        className="btn-show-management-numbers-compact"
                                         onClick={() => handleShowManagementNumbers(inv, selectedFromThis, {
                                           productName: item.productType === 'software' 
                                             ? `${item.softwareName} (${item.consoleLabel})` 
@@ -1125,7 +1287,7 @@ const Sales = () => {
                                             : inv.supplier?.name || '不明'
                                         })}
                                       >
-                                        🏷️ 管理番号
+                                        🏷️
                                       </button>
                                     )}
                                   </div>
@@ -1342,9 +1504,7 @@ const Sales = () => {
                 </>
               )}
               
-              {currentReq.status === 'payment_confirmed' && (
-                <button className="sales-print-button" onClick={handlePrint}>🖨️ 見積書印刷</button>
-              )}
+              
             </div>
 
             {/* 発送情報（一番下に独立配置） */}
@@ -1371,41 +1531,49 @@ const Sales = () => {
                     <div className="sales-shipping-actions">
                       {currentReq.status === 'payment_confirmed' && (
                         <>
-                          <div className="sales-form-group">
-                            <label>📅 発送日</label>
-                            <input
-                              type="date"
-                              id="shippedDate"
-                              defaultValue={getTodayJST()}
-                            />
+                          <div className="sales-shipping-inputs-row" style={{ marginLeft: '-30px', maxWidth: '90%' }}>
+                            <div className="sales-form-group">
+                              <label>📅 発送日</label>
+                              <input
+                                type="date"
+                                id="shippedDate"
+                                defaultValue={getTodayJST()}
+                              />
+                            </div>
+                            <div className="sales-form-group" style={{ flex: '1.8' }}>
+                              <label>🏷️ 追跡番号</label>
+                              <input
+                                type="text"
+                                id="trackingNumber"
+                                placeholder="追跡番号を入力"
+                                style={{ minWidth: '200px', maxWidth: '280px' }}
+                              />
+                            </div>
                           </div>
-                          <div className="sales-form-group">
-                            <label>🏷️ 追跡番号</label>
-                            <input
-                              type="text"
-                              id="trackingNumber"
-                              placeholder="追跡番号を入力"
-                            />
+                          <div className="sales-shipping-buttons" style={{ marginTop: '20px', justifyContent: 'flex-start', marginLeft: '-30px' }}>
+                            <button className="sales-action-btn sales-btn-secondary" onClick={handlePrintInvoice}>
+                              📄 インボイス印刷
+                            </button>
+                            <button onClick={() => {
+                              const date = document.getElementById('shippedDate').value;
+                              const tracking = document.getElementById('trackingNumber').value;
+                              
+                              // 在庫選択チェック
+                              const allSelected = currentReq.items.every(item => {
+                                const selected = getSelectedQuantity(item.id);
+                                return selected === item.quantity;
+                              });
+
+                              if (!allSelected) {
+                                alert('全ての商品の在庫を選択してから発送完了にしてください');
+                                return;
+                              }
+
+                              handleCompleteSale(date, tracking);
+                            }} className="sales-action-btn sales-btn-primary">
+                              📦 発送完了にする
+                            </button>
                           </div>
-                          <button onClick={() => {
-                            const date = document.getElementById('shippedDate').value;
-                            const tracking = document.getElementById('trackingNumber').value;
-                            
-                            // 在庫選択チェック
-                            const allSelected = currentReq.items.every(item => {
-                              const selected = getSelectedQuantity(item.id);
-                              return selected === item.quantity;
-                            });
-
-                            if (!allSelected) {
-                              alert('全ての商品の在庫を選択してから発送完了にしてください');
-                              return;
-                            }
-
-                            handleCompleteSale(date, tracking);
-                          }} className="sales-action-btn sales-btn-primary">
-                            📦 発送完了にする
-                          </button>
                         </>
                       )}
                     </div>
@@ -1559,6 +1727,114 @@ const Sales = () => {
               * All prices are in US Dollars (USD)<br/>
               * Payment terms: Wire transfer in advance<br/>
               * Items will be shipped after payment confirmation
+            </p>
+          </div>
+        </div>
+
+        {/* インボイス印刷用テンプレート */}
+        <div className="print-only invoice-sheet" style={{display: 'none'}}>
+          <div className="invoice-header">
+            <div className="invoice-left">
+              <h1 className="invoice-title">INVOICE</h1>
+              <div className="invoice-meta">
+                <p>Invoice No.: {currentReq.requestNumber}</p>
+                <p>Invoice Date: {getTodayJST()}</p>
+                <p>Payment Status: <strong>Paid</strong></p>
+              </div>
+            </div>
+            <div className="company-info-right">
+              <h2>{companyInfo.nameEn}</h2>
+              <p>{companyInfo.addressEn}</p>
+              <p>{companyInfo.phoneEn}</p>
+              <p>{companyInfo.email}</p>
+              <p className="license">{companyInfo.licenseEn}</p>
+              {(currentReq.salesStaffName || salesStaffName) && (
+                <p><strong>Contact Person:</strong> {getEnglishName(currentReq.salesStaffName || salesStaffName)}</p>
+              )}
+            </div>
+          </div>
+
+          <div className="customer-section">
+            <h3>Customer Information</h3>
+            <div className="customer-details">
+              <p><strong>{currentReq.customer.name}</strong></p>
+              <p>Email: {currentReq.customer.email} &nbsp;&nbsp; Tel: {currentReq.customer.phone || 'N/A'}</p>
+              {currentReq.customer.country && <p>Country: {currentReq.customer.country}</p>}
+            </div>
+          </div>
+
+          <div className="shipping-section">
+            <h3>Shipping Information</h3>
+            <div className="shipping-details">
+              {(() => {
+                const shippingInfo = getInvoiceShippingInfo();
+                return (
+                  <p>
+                    <strong>Shipping Method:</strong> EMS &nbsp;&nbsp;
+                    <strong>Shipping Date:</strong> {shippingInfo.shippedDate}
+                    {shippingInfo.trackingNumber && (
+                      <> &nbsp;&nbsp; <strong>Tracking Number:</strong> {shippingInfo.trackingNumber}</>
+                    )}
+                  </p>
+                );
+              })()}
+            </div>
+          </div>
+
+          <table className="invoice-table">
+            <thead>
+              <tr>
+                <th>Item Name</th>
+                <th>Country</th>
+                <th>Weight (kg)</th>
+                <th>Qty</th>
+                <th>Unit Price (USD)</th>
+                <th>Amount (USD)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {currentReq.items.map((item, idx) => (
+                <tr key={idx}>
+                  <td>
+                    {item.productType === 'software' 
+                      ? `${item.softwareName} (${item.consoleLabel})` 
+                      : `${item.manufacturerLabel} ${item.consoleLabel}`
+                    }
+                  </td>
+                  <td className="center">{getCountryOfOrigin(item)}</td>
+                  <td className="center">{item.weight || 0}</td>
+                  <td className="center">{item.quantity}</td>
+                  <td className="right">${convertToUSD(item.quotedPrice || 0).toFixed(2)}</td>
+                  <td className="right">${convertToUSD((item.quotedPrice || 0) * item.quantity).toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div className="invoice-total">
+            <div className="total-row">
+              <span className="total-label-print">Subtotal</span>
+              <span className="total-amount-print">${convertToUSD(calculateTotal()).toFixed(2)}</span>
+            </div>
+            {getPrintShippingFee() > 0 && (
+              <div className="total-row">
+                <span className="total-label-print">Shipping Fee</span>
+                <span className="total-amount-print">${convertToUSD(getPrintShippingFee()).toFixed(2)}</span>
+              </div>
+            )}
+            <div className="total-row">
+              <span className="total-label-print">Total Weight</span>
+              <span className="total-amount-print">{calculateTotalWeight()}kg</span>
+            </div>
+            <div className="total-row" style={{borderTop: '2px solid #333', marginTop: '10px', paddingTop: '10px', fontWeight: 'bold', fontSize: '1.2em'}}>
+              <span className="total-label-print">Total Amount</span>
+              <span className="total-amount-print">${convertToUSD(calculateTotal() + getPrintShippingFee()).toFixed(2)}</span>
+            </div>
+          </div>
+
+          <div className="invoice-notes" style={{marginTop: '20px'}}>
+            <p style={{fontSize: '0.9em'}}>
+              * Thank you for your business
             </p>
           </div>
         </div>

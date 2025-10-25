@@ -122,12 +122,17 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('currentUser');
   };
 
+  const getAllUsers = () => {
+    return getUsers();
+  };
+
   const value = {
     user,
     login,
     register,
     updateUser,
     logout,
+    getAllUsers,
     loading,
     isAuthenticated: !!user,
     isCustomer: user?.role === 'customer',

@@ -552,6 +552,17 @@
   box-sizing: border-box;
 }
 
+/* 追跡番号の欄だけ横幅を広げるための特別な設定 */
+.sales-shipping-inputs-row .sales-form-group:last-child {
+  flex: 1.8 !important;
+}
+
+.sales-shipping-inputs-row .sales-form-group:last-child input {
+  width: 100% !important;
+  min-width: 200px !important;
+  max-width: 280px !important;
+}
+
 .sales-form-group input:focus {
   outline: none;
   border-color: #3498db;
@@ -907,6 +918,82 @@
   box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
 }
 
+/* 発送情報入力欄の横並びスタイル */
+.sales-shipping-inputs-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+  margin-left: -30px;
+  max-width: 90%;
+}
+
+.sales-shipping-inputs-row .sales-form-group {
+  flex: 1;
+}
+
+
+.sales-info-message {
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+  border: 1px solid #2196f3;
+  border-radius: 8px;
+  padding: 15px;
+  text-align: center;
+  margin-bottom: 15px;
+}
+
+.sales-info-message p {
+  margin: 0;
+  color: #1565c0;
+  font-weight: 500;
+}
+
+/* Sales.jsx専用のボタンスタイル - より高い優先度で適用 */
+.sales-container .sales-shipping-buttons {
+  display: flex !important;
+  gap: 20px !important;
+  margin-top: 20px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  justify-content: flex-start !important;
+  padding-left: 0 !important;
+  overflow: visible !important;
+}
+
+/* 発送情報のボタンを左寄せに */
+.sales-shipping-actions .sales-shipping-buttons {
+  justify-content: flex-start !important;
+  margin-top: 20px !important;
+  margin-left: -30px !important;
+}
+
+.sales-container .sales-shipping-buttons button {
+  flex: 0 0 auto !important;
+  white-space: nowrap !important;
+  min-width: 160px !important;
+  max-width: 180px !important;
+  box-sizing: border-box !important;
+  padding: 10px 15px !important;
+  font-size: 13px !important;
+}
+
+.sales-btn-secondary {
+  background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+  color: white;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.sales-btn-secondary:hover {
+  background: linear-gradient(135deg, #495057 0%, #343a40 100%);
+  transform: translateY(-2px);
+}
+
+
 /* === 印刷スタイル === */
 .print-only {
   display: none;
@@ -1002,6 +1089,24 @@
     color: #34495e;
   }
 
+  .shipping-section {
+    margin-bottom: 25px;
+  }
+
+  .shipping-section h3 {
+    font-size: 16px;
+    margin: 0 0 10px 0;
+    color: #2c3e50;
+    padding-bottom: 5px;
+    border-bottom: 2px solid #ecf0f1;
+  }
+
+  .shipping-details p {
+    margin: 5px 0;
+    font-size: 14px;
+    color: #34495e;
+  }
+
   .estimate-table {
     width: 100%;
     border-collapse: collapse;
@@ -1091,6 +1196,86 @@
   }
 
   .estimate-notes p {
+    font-size: 13px;
+    color: #34495e;
+    line-height: 1.6;
+  }
+
+  /* インボイス印刷用スタイル */
+  .invoice-sheet {
+    max-width: 800px;
+    margin: 0 auto;
+  }
+
+  .invoice-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 30px;
+    padding-bottom: 15px;
+    border-bottom: 3px solid #2c3e50;
+  }
+
+  .invoice-left {
+    flex: 1;
+  }
+
+  .invoice-title {
+    font-size: 28px;
+    margin: 0 0 15px 0;
+    color: #2c3e50;
+    font-weight: bold;
+  }
+
+  .invoice-meta p {
+    margin: 5px 0;
+    font-size: 14px;
+    color: #34495e;
+  }
+
+  .invoice-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+  }
+
+  .invoice-table th,
+  .invoice-table td {
+    border: 1px solid #2c3e50;
+    padding: 10px;
+    text-align: left;
+    font-size: 13px;
+  }
+
+  .invoice-table thead {
+    background-color: #ecf0f1;
+  }
+
+  .invoice-table th {
+    font-weight: 700;
+    color: #2c3e50;
+  }
+
+  .invoice-table td.center {
+    text-align: center;
+  }
+
+  .invoice-table td.right {
+    text-align: right;
+  }
+
+  .invoice-total {
+    margin-top: 30px;
+    margin-bottom: 30px;
+    border: 2px solid #2c3e50;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .invoice-notes {
+    margin-top: 30px;
+  }
+
+  .invoice-notes p {
     font-size: 13px;
     color: #34495e;
     line-height: 1.6;
@@ -1547,6 +1732,123 @@
   font-size: 20px;
 }
 
+/* 選択進捗のマージン調整 */
+.inventory-item-selection .selection-header .selection-progress {
+  margin-top: 5px !important;
+}
+
+.selection-progress {
+  margin-top: 5px !important;
+}
+
+/* コンパクトな在庫表示 */
+.inventory-row-compact {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  background-color: #fafafa;
+}
+
+.inventory-info-compact {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 1;
+}
+
+.inventory-info-compact .rank-badge {
+  font-size: 13px;
+  padding: 3px 8px;
+  min-width: 24px;
+  text-align: center;
+}
+
+.inventory-info-compact .inventory-source {
+  font-size: 15px;
+  min-width: 90px;
+}
+
+.inventory-info-compact .inventory-price {
+  font-size: 15px;
+  color: #27ae60;
+  font-weight: 600;
+  min-width: 110px;
+}
+
+.inventory-info-compact .inventory-stock {
+  font-size: 15px;
+  color: #666;
+  min-width: 70px;
+}
+
+.inventory-info-compact .inventory-date {
+  font-size: 13px;
+  color: #888;
+  min-width: 90px;
+}
+
+.inventory-select-compact {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.quantity-input-compact {
+  width: 55px;
+  padding: 5px 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  text-align: center;
+  font-size: 15px;
+}
+
+.btn-show-management-numbers-compact {
+  padding: 5px 10px;
+  font-size: 13px;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-show-management-numbers-compact:hover {
+  background-color: #2980b9;
+}
+
+/* 重量入力セクション */
+.weight-input-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.weight-input-section label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.weight-input {
+  width: 100px;
+  padding: 6px 10px;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  text-align: right;
+}
+
+.weight-input:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
 /* 発送情報セクション（一番下） */
 .sales-shipping-section-bottom {
   margin-top: 30px;
@@ -1586,8 +1888,8 @@
 .management-number-modal {
   background: white;
   border-radius: 12px;
-  width: 90%;
-  max-width: 700px;
+  width: 95%;
+  max-width: 1200px;
   max-height: 80vh;
   display: flex;
   flex-direction: column;
@@ -1635,21 +1937,27 @@
   margin-bottom: 15px;
 }
 
-.management-numbers-grid-modal {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 10px;
+/* 管理番号モーダル専用スタイル - 最高優先度で適用 */
+.management-number-modal .management-numbers-grid-modal {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 15px !important;
+  width: 100% !important;
+  max-width: 100% !important;
 }
 
-.management-number-item-modal {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-  border: 1px solid #3498db;
-  border-radius: 6px;
-  font-family: 'Courier New', monospace;
+.management-number-modal .management-number-item-modal {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 15px 20px !important;
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%) !important;
+  border: 2px solid #3498db !important;
+  border-radius: 10px !important;
+  font-family: 'Courier New', monospace !important;
+  width: 100% !important;
+  min-width: 600px !important;
+  box-sizing: border-box !important;
 }
 
 .number-index-modal {
@@ -1659,11 +1967,13 @@
   min-width: 25px;
 }
 
-.number-value-modal {
-  font-size: 12px;
-  font-weight: bold;
-  color: #0d47a1;
-  flex: 1;
+.management-number-modal .number-value-modal {
+  font-size: 14px !important;
+  font-weight: bold !important;
+  color: #0d47a1 !important;
+  flex: 1 !important;
+  word-break: break-all !important;
+  min-width: 400px !important;
 }
 
 .no-numbers {

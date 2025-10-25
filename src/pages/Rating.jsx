@@ -3,6 +3,7 @@ import { manufacturers, colors, conditions, accessories } from '../data/gameCons
 import { getAllConsoles } from '../utils/productMaster';
 import { generateManagementNumber, generateProductCode } from '../utils/productCodeGenerator';
 import { getBuybackBasePrice } from '../utils/priceCalculator';
+import { createInventoryInZaico, createPurchaseInZaico, logSyncActivity } from '../utils/zaicoApi';
 import './Rating.css';
 
 // 付属品を短く表示する関数
@@ -103,14 +104,38 @@ const Rating = () => {
     setAllGameConsoles(getAllConsoles());
   }, []);
 
-  // ページがアクティブになった時にデータを再読み込み
+  // ページがアクティブになった時にデータを再読み込み（価格入力中は完全に除外）
   useEffect(() => {
+    let isPriceInputActive = false;
+    let lastPriceUpdateTime = 0;
+
     const handleFocus = () => {
+      // 価格入力フィールドにフォーカスがある場合は更新しない
+      const activeElement = document.activeElement;
+      if (activeElement && activeElement.classList.contains('price-input')) {
+        isPriceInputActive = true;
+        return;
+      }
+      
+      // 価格入力から離れた場合
+      if (isPriceInputActive) {
+        // 価格更新から3秒以内の場合は更新しない
+        const now = Date.now();
+        if (window.lastPriceUpdateTime && (now - window.lastPriceUpdateTime < 3000)) {
+          return;
+        }
+        isPriceInputActive = false;
+      }
+      
       loadApplications();
     };
 
     const handleStorageChange = (e) => {
       if (e.key === 'allApplications') {
+        // 価格入力中は完全に無視
+        if (isPriceInputActive) {
+          return;
+        }
         loadApplications();
       }
     };
@@ -118,15 +143,9 @@ const Rating = () => {
     window.addEventListener('focus', handleFocus);
     window.addEventListener('storage', handleStorageChange);
 
-    // 定期的にデータを更新（5秒ごと）
-    const intervalId = setInterval(() => {
-      loadApplications();
-    }, 5000);
-
     return () => {
       window.removeEventListener('focus', handleFocus);
       window.removeEventListener('storage', handleStorageChange);
-      clearInterval(intervalId);
     };
   }, []);
 
@@ -202,7 +221,7 @@ const Rating = () => {
     setShowAddItem(false);
   };
 
-  // 査定ランク変更（基準価格の自動設定付き）
+  // 査定ランク変更（手動価格入力済みの場合は価格を保持）
   const handleRankChange = (itemId, rank) => {
     const updatedApplications = applications.map((app, index) => {
       if (index === selectedApplication) {
@@ -210,16 +229,26 @@ const Rating = () => {
           ...app,
           items: app.items.map(item => {
             if (item.id === itemId) {
-              // 機種コードを生成して基準価格を取得
-              const productCode = generateProductCode(item.manufacturer, item.console, item.productType);
-              const basePrice = getBuybackBasePrice(productCode, rank);
+              // 手動で価格が入力済みの場合は価格を保持
+              const hasManualPrice = item.buybackPrice && item.buybackPrice > 0;
               
-              // 基準価格が設定されている場合は自動入力、なければ現在の価格を維持
-              return { 
-                ...item, 
-                assessedRank: rank,
-                buybackPrice: basePrice > 0 ? basePrice : (item.buybackPrice || 0)
-              };
+              if (hasManualPrice) {
+                // 手動価格がある場合は価格を変更せず、ランクのみ更新
+                return { 
+                  ...item, 
+                  assessedRank: rank
+                };
+              } else {
+                // 手動価格がない場合のみ基準価格を自動設定
+                const productCode = generateProductCode(item.manufacturer, item.console, item.productType);
+                const basePrice = getBuybackBasePrice(productCode, rank);
+                
+                return { 
+                  ...item, 
+                  assessedRank: rank,
+                  buybackPrice: basePrice > 0 ? basePrice : (item.buybackPrice || 0)
+                };
+              }
             }
             return item;
           })
@@ -232,7 +261,7 @@ const Rating = () => {
     localStorage.setItem('allApplications', JSON.stringify(updatedApplications));
   };
 
-  // 買取単価変更
+  // 買取単価変更（即座に保存 + タイムスタンプ記録）
   const handlePriceChange = (itemId, price) => {
     const updatedApplications = applications.map((app, index) => {
       if (index === selectedApplication) {
@@ -247,7 +276,12 @@ const Rating = () => {
     });
 
     setApplications(updatedApplications);
+    
+    // 即座にlocalStorageを更新
     localStorage.setItem('allApplications', JSON.stringify(updatedApplications));
+    
+    // 価格更新のタイムスタンプを記録
+    window.lastPriceUpdateTime = Date.now();
   };
 
   // 商品の備考変更
@@ -466,12 +500,20 @@ const Rating = () => {
   };
 
   // 在庫登録を実行
-  const handleConfirmAddToInventory = () => {
+  const handleConfirmAddToInventory = async () => {
     // 在庫データを保存
     const inventoryData = JSON.parse(localStorage.getItem('inventory') || '[]');
     
+    // 既存データのtitleフィールドを修正（undefinedを正しい値に置換）
+    inventoryData.forEach(inv => {
+      if (!inv.title || inv.title === 'undefined') {
+        inv.title = inv.consoleLabel || inv.softwareName || 'ゲーム商品';
+      }
+    });
+    localStorage.setItem('inventory', JSON.stringify(inventoryData));
+    
     // 各商品を在庫に追加（同じ商品は数量をまとめる）
-    currentApp.items.forEach(item => {
+    for (const item of currentApp.items) {
       // 既存在庫に同じ商品（同じ機種、カラー、付属品、ランク、単価、仕入れ元）があるか確認
       const existingIndex = inventoryData.findIndex(inv => 
         inv.productType === item.productType &&
@@ -489,6 +531,11 @@ const Rating = () => {
         // 既存在庫があれば数量を加算
         const beforeQuantity = inventoryData[existingIndex].quantity;
         inventoryData[existingIndex].quantity += item.quantity;
+        
+        // titleフィールドを追加（既存データにない場合）
+        if (!inventoryData[existingIndex].title || inventoryData[existingIndex].title === 'undefined') {
+          inventoryData[existingIndex].title = item.consoleLabel || item.softwareName || 'ゲーム商品';
+        }
         
         // 管理番号も追加
         const existingNumbers = inventoryData[existingIndex].managementNumbers || [];
@@ -535,6 +582,7 @@ const Rating = () => {
           quantity: item.quantity,
           buybackPrice: item.buybackPrice,
           acquisitionPrice: item.buybackPrice, // 統一
+          title: item.consoleLabel || item.softwareName || 'ゲーム商品', // titleフィールドを追加
           managementNumbers: generatedManagementNumbers[item.id] || [], // 管理番号を追加
           registeredDate: new Date().toISOString(),
           customer: {
@@ -548,6 +596,51 @@ const Rating = () => {
           }
         };
         inventoryData.push(inventoryItem);
+        
+        // zaico連携処理（入庫データとして登録して仕入単価を設定）
+        try {
+          console.log('=== zaico連携開始 ===');
+          console.log('在庫データ:', inventoryItem);
+          console.log('title:', inventoryItem.title);
+          console.log('zaicoId:', inventoryItem.zaicoId);
+          
+          const zaicoResult = await createPurchaseInZaico(inventoryItem);
+          console.log('zaico結果:', zaicoResult);
+          
+          // zaicoIdを在庫データに保存
+          if (zaicoResult && zaicoResult.inventory && (zaicoResult.inventory.data_id || zaicoResult.inventory.id)) {
+            const zaicoId = zaicoResult.inventory.data_id || zaicoResult.inventory.id;
+            inventoryItem.zaicoId = zaicoId;
+            console.log('zaicoIdを保存:', zaicoId);
+            
+            // 在庫データを更新して保存（inventoryDataを直接更新）
+            const updatedIndex = inventoryData.findIndex(inv => inv.id === inventoryItem.id);
+            if (updatedIndex !== -1) {
+              inventoryData[updatedIndex].zaicoId = zaicoId;
+              localStorage.setItem('inventory', JSON.stringify(inventoryData));
+              console.log('在庫データにzaicoIdを保存完了');
+              console.log('更新後の在庫データ:', inventoryData[updatedIndex]);
+            } else {
+              console.error('在庫データの更新に失敗: 該当IDが見つかりません');
+            }
+          } else {
+            console.error('zaicoIdの取得に失敗:', zaicoResult);
+          }
+          logSyncActivity('buyback_create', 'success', { 
+            itemId: inventoryItem.id, 
+            applicationNumber: currentApp.applicationNumber,
+            title: inventoryItem.consoleLabel || inventoryItem.softwareName,
+            zaicoId: inventoryItem.zaicoId,
+            method: 'purchase_with_unit_price'
+          });
+        } catch (error) {
+          logSyncActivity('buyback_create', 'error', { 
+            itemId: inventoryItem.id, 
+            applicationNumber: currentApp.applicationNumber,
+            error: error.message 
+          });
+          console.error('zaico連携エラー:', error);
+        }
         
         // 初期在庫登録の履歴を記録
         const inventoryHistory = JSON.parse(localStorage.getItem('inventoryHistory') || '[]');
@@ -568,7 +661,7 @@ const Rating = () => {
         });
         localStorage.setItem('inventoryHistory', JSON.stringify(inventoryHistory));
       }
-    });
+    }
     
     localStorage.setItem('inventory', JSON.stringify(inventoryData));
     
@@ -1283,12 +1376,18 @@ const Rating = () => {
                                     `¥${(item.buybackPrice || 0).toLocaleString()}`
                                   ) : (
                                     <input
-                                      type="number"
+                                      type="text"
                                       value={item.buybackPrice || ''}
                                       onChange={(e) => handlePriceChange(item.id, e.target.value)}
                                       className="price-input"
-                                      step="100"
                                       placeholder="0"
+                                      onWheel={(e) => e.preventDefault()}
+                                      onKeyDown={(e) => {
+                                        // 数字、バックスペース、Delete、矢印キーのみ許可
+                                        if (!/[0-9]/.test(e.key) && !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.key)) {
+                                          e.preventDefault();
+                                        }
+                                      }}
                                     />
                                   )}
                                 </td>

@@ -7,6 +7,126 @@
   box-shadow: 0 0 20px rgba(0,0,0,0.1);
 }
 
+/* eBay販売記録検索スタイル */
+.ebay-record-search {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.ebay-record-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.ebay-search-btn {
+  padding: 8px 16px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.ebay-search-btn:hover:not(:disabled) {
+  background-color: #0056b3;
+}
+
+.ebay-search-btn:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
+.input-hint {
+  display: block;
+  margin-top: 5px;
+  font-size: 12px;
+  color: #6c757d;
+}
+
+/* ページネーション関連スタイル */
+.pagination-controls {
+  margin: 20px 0;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.pagination-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: #6c757d;
+}
+
+.pagination-info select {
+  padding: 5px 10px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  background-color: white;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  margin: 30px 0;
+  padding: 20px;
+}
+
+.pagination-btn {
+  padding: 8px 16px;
+  border: 1px solid #007bff;
+  background-color: white;
+  color: #007bff;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background-color: #007bff;
+  color: white;
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination-numbers {
+  display: flex;
+  gap: 5px;
+}
+
+.pagination-number {
+  padding: 8px 12px;
+  border: 1px solid #dee2e6;
+  background-color: white;
+  color: #495057;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pagination-number:hover {
+  background-color: #e9ecef;
+}
+
+.pagination-number.active {
+  background-color: #007bff;
+  color: white;
+  border-color: #007bff;
+}
+
 /* 管理番号スタイル */
 .management-number-badge-inv {
   font-family: 'Courier New', monospace;
@@ -107,6 +227,11 @@
 
 .status-shipped {
   background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
+  color: white;
+}
+
+.status-out-of-stock {
+  background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
   color: white;
 }
 

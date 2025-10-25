@@ -426,8 +426,8 @@ const MyOrders = () => {
                         <td>{item.conditionLabel || '-'}</td>
                         <td>{item.packageTypeLabel || '-'}</td>
                         <td>{item.quantity}</td>
-                        <td>${(item.quotedPrice || 0).toLocaleString()}</td>
-                        <td>${((item.quotedPrice || 0) * item.quantity).toLocaleString()}</td>
+                        <td>${convertToUSD(item.quotedPrice || 0).toFixed(2)}</td>
+                        <td>${convertToUSD((item.quotedPrice || 0) * item.quantity).toFixed(2)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -436,12 +436,12 @@ const MyOrders = () => {
                 <div className="estimate-total">
                   <div className="total-row">
                     <span>Subtotal</span>
-                    <span>${calculateTotal(order.items).toLocaleString()}</span>
+                    <span>${convertToUSD(calculateTotal(order.items)).toFixed(2)}</span>
                   </div>
                   {order.shippingFee && (
                     <div className="total-row">
                       <span>Shipping Fee</span>
-                      <span>${order.shippingFee.toLocaleString()}</span>
+                      <span>${convertToUSD(order.shippingFee).toFixed(2)}</span>
                     </div>
                   )}
                   {order.deliveryDays && (
@@ -452,7 +452,7 @@ const MyOrders = () => {
                   )}
                   <div className="total-row grand-total">
                     <span>Total Amount</span>
-                    <span>${(calculateTotal(order.items) + (order.shippingFee || 0)).toLocaleString()}</span>
+                    <span>${convertToUSD(calculateTotal(order.items) + (order.shippingFee || 0)).toFixed(2)}</span>
                   </div>
                 </div>
 

@@ -201,6 +201,9 @@ const Layout = ({ children }) => {
                       <Link to="/sys/admin/user-management" className={isActive('/sys/admin/user-management') ? 'active' : ''}>
                         👤 ユーザー管理
                       </Link>
+                      <Link to="/settings/zaico-sync" className={isActive('/settings/zaico-sync') ? 'active' : ''}>
+                        🔄 Zaico同期管理
+                      </Link>
                     </div>
                   )}
                 </div>

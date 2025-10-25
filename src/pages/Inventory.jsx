@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { manufacturers, colors, conditions } from '../data/gameConsoles';
 import { getAllConsoles } from '../utils/productMaster';
+import { searchEbaySalesRecord } from '../utils/googleSheetsApi';
+import { GOOGLE_SHEETS_CONFIG } from '../config/googleSheets';
 import './Inventory.css';
 
 const Inventory = () => {
@@ -10,6 +12,11 @@ const Inventory = () => {
   const [manufacturerFilter, setManufacturerFilter] = useState('');
   const [rankFilter, setRankFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  
+  // ページネーション関連
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [showInStockOnly, setShowInStockOnly] = useState(false);
   
   // 表示モード
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'detail'
@@ -61,6 +68,57 @@ const Inventory = () => {
     setAllGameConsoles(getAllConsoles());
   }, []);
 
+  // eBay販売記録の自動入力機能
+  const handleEbayRecordSearch = async () => {
+    if (!salesFormData.ebayRecordNumber.trim()) {
+      alert('eBay販売記録番号を入力してください');
+      return;
+    }
+
+    try {
+      console.log('=== eBay販売記録検索開始 ===');
+      console.log('検索番号:', salesFormData.ebayRecordNumber);
+      
+      const record = await searchEbaySalesRecord(salesFormData.ebayRecordNumber);
+      
+      if (record) {
+        // 販売フォームに自動入力
+        setSalesFormData(prev => ({
+          ...prev,
+          buyerName: record.customerName,
+          soldPrice: record.price,
+          quantity: record.quantity
+        }));
+        
+        console.log('eBay販売記録を自動入力しました:', record);
+        alert(`✅ eBay販売記録を取得しました\n商品名: ${record.productName}\n価格: ¥${record.price.toLocaleString()}\n顧客名: ${record.customerName}`);
+      } else {
+        alert('❌ 該当するeBay販売記録が見つかりませんでした');
+      }
+    } catch (error) {
+      console.error('eBay販売記録検索エラー:', error);
+      
+      // エラーメッセージを詳細に表示
+      let errorMessage = `❌ eBay販売記録の取得に失敗しました\n\n`;
+      
+      if (error.message.includes('スプレッドシートが見つかりません')) {
+        errorMessage += `🔍 問題: スプレッドシートが見つかりません\n`;
+        errorMessage += `📋 解決方法: スプレッドシートIDを確認してください\n`;
+        errorMessage += `🔗 現在のID: ${GOOGLE_SHEETS_CONFIG.SPREADSHEET_ID}`;
+      } else if (error.message.includes('APIキーが無効')) {
+        errorMessage += `🔑 問題: APIキーが無効またはアクセス権限がありません\n`;
+        errorMessage += `📋 解決方法: Google Cloud ConsoleでAPIキーを確認してください`;
+      } else if (error.message.includes('接続できません')) {
+        errorMessage += `🌐 問題: Google Sheets APIに接続できません\n`;
+        errorMessage += `📋 解決方法: インターネット接続とAPIキーを確認してください`;
+      } else {
+        errorMessage += `📋 エラー詳細: ${error.message}`;
+      }
+      
+      alert(errorMessage);
+    }
+  };
+
   const totalItems = inventory.reduce((sum, item) => sum + item.quantity, 0);
   const totalValue = inventory.reduce((sum, item) => sum + (item.buybackPrice * item.quantity), 0);
   const averagePrice = totalItems > 0 ? Math.round(totalValue / totalItems) : 0;
@@ -85,8 +143,29 @@ const Inventory = () => {
     const itemStatus = item.status || 'in_stock';
     const matchesStatus = !statusFilter || itemStatus === statusFilter;
     
-    return matchesSearch && matchesProductType && matchesManufacturer && matchesRank && matchesStatus;
+    // 在庫ありのみフィルター
+    const hasStock = item.quantity > 0;
+    const matchesStockFilter = !showInStockOnly || hasStock;
+    
+    return matchesSearch && matchesProductType && matchesManufacturer && matchesRank && matchesStatus && matchesStockFilter;
   });
+
+  // ページネーション計算
+  const totalPages = Math.ceil(filteredInventory.length / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedInventory = filteredInventory.slice(startIndex, endIndex);
+
+  // ページ変更時の処理
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
+  };
+
+  // ページサイズ変更時の処理
+  const handlePageSizeChange = (newPageSize) => {
+    setPageSize(newPageSize);
+    setCurrentPage(1); // ページサイズ変更時は1ページ目に戻る
+  };
 
   const handleExportData = () => {
     const format = prompt('エクスポート形式を選択してください:\n1. CSV\n2. Excel\n3. PDF', '1');
@@ -155,6 +234,7 @@ const Inventory = () => {
       case 'in_stock': return 'status-in-stock';
       case 'reserved': return 'status-reserved';
       case 'shipped': return 'status-shipped';
+      case 'out_of_stock': return 'status-out-of-stock';
       default: return 'status-in-stock';
     }
   };
@@ -607,6 +687,30 @@ const Inventory = () => {
               <option value="shipped">✈️ 発送済み</option>
             </select>
           </div>
+          <div className="form-group">
+            <label>
+              <input 
+                type="checkbox" 
+                checked={showInStockOnly} 
+                onChange={(e) => setShowInStockOnly(e.target.checked)}
+              />
+              在庫ありのみ表示
+            </label>
+          </div>
+        </div>
+      </div>
+
+      {/* ページネーション設定 */}
+      <div className="pagination-controls">
+        <div className="pagination-info">
+          <span>表示件数: </span>
+          <select value={pageSize} onChange={(e) => handlePageSizeChange(Number(e.target.value))}>
+            <option value={10}>10件</option>
+            <option value={20}>20件</option>
+            <option value={50}>50件</option>
+            <option value={100}>100件</option>
+          </select>
+          <span>（{filteredInventory.length}件中 {startIndex + 1}-{Math.min(endIndex, filteredInventory.length)}件を表示）</span>
         </div>
       </div>
 
@@ -636,7 +740,7 @@ const Inventory = () => {
             </tr>
           </thead>
           <tbody>
-            {filteredInventory.map(item => {
+            {paginatedInventory.map(item => {
               // 管理番号の表示テキストを生成
               let managementNumberDisplay = '-';
               if (item.managementNumbers && item.managementNumbers.length > 0) {
@@ -691,8 +795,8 @@ const Inventory = () => {
                   </span>
                 </td>
                 <td>
-                  <span className={`status-badge ${getStatusBadgeClass(item.status || 'in_stock')}`}>
-                    {getStatusLabel(item.status || 'in_stock')}
+                  <span className={`status-badge ${getStatusBadgeClass(item.quantity > 0 ? (item.status || 'in_stock') : 'out_of_stock')}`}>
+                    {item.quantity > 0 ? getStatusLabel(item.status || 'in_stock') : '在庫なし'}
                   </span>
                 </td>
                 <td className="quantity-cell">{item.quantity}</td>
@@ -1292,8 +1396,8 @@ const Inventory = () => {
                   <div className="status-header-row">
                     <div className="current-status">
                       <span className="status-label">現在のステータス:</span>
-                      <span className={`status-badge-large ${getStatusBadgeClass(selectedItem.status || 'in_stock')}`}>
-                        {getStatusLabel(selectedItem.status || 'in_stock')}
+                      <span className={`status-badge-large ${getStatusBadgeClass(selectedItem.quantity > 0 ? (selectedItem.status || 'in_stock') : 'out_of_stock')}`}>
+                        {selectedItem.quantity > 0 ? getStatusLabel(selectedItem.status || 'in_stock') : '在庫なし'}
                       </span>
                     </div>
                     
@@ -1352,14 +1456,24 @@ const Inventory = () => {
                           {salesFormData.salesChannel === 'ebay' && (
                             <div className="form-group">
                               <label>eBayセールスレコード番号 *</label>
-                              <input
-                                type="text"
-                                value={salesFormData.ebayRecordNumber}
-                                onChange={(e) => setSalesFormData({...salesFormData, ebayRecordNumber: e.target.value})}
-                                placeholder="例: 123-45678-90123"
-                                className="ebay-record-input"
-                              />
-                              <small className="input-hint">eBayの注文番号を入力してください</small>
+                              <div className="ebay-record-search">
+                                <input
+                                  type="text"
+                                  value={salesFormData.ebayRecordNumber}
+                                  onChange={(e) => setSalesFormData({...salesFormData, ebayRecordNumber: e.target.value})}
+                                  placeholder="例: 123-45678-90123"
+                                  className="ebay-record-input"
+                                />
+                                <button 
+                                  type="button"
+                                  onClick={handleEbayRecordSearch}
+                                  className="ebay-search-btn"
+                                  disabled={!salesFormData.ebayRecordNumber.trim()}
+                                >
+                                  🔍 検索
+                                </button>
+                              </div>
+                              <small className="input-hint">eBayの注文番号を入力して「検索」ボタンを押すと、Googleスプレッドシートから自動で情報を取得します</small>
                             </div>
                           )}
 
@@ -1660,6 +1774,39 @@ const Inventory = () => {
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {/* ページネーションボタン */}
+      {totalPages > 1 && (
+        <div className="pagination">
+          <button 
+            onClick={() => handlePageChange(currentPage - 1)} 
+            disabled={currentPage === 1}
+            className="pagination-btn"
+          >
+            ← 前へ
+          </button>
+          
+          <div className="pagination-numbers">
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+              <button
+                key={page}
+                onClick={() => handlePageChange(page)}
+                className={`pagination-number ${currentPage === page ? 'active' : ''}`}
+              >
+                {page}
+              </button>
+            ))}
+          </div>
+          
+          <button 
+            onClick={() => handlePageChange(currentPage + 1)} 
+            disabled={currentPage === totalPages}
+            className="pagination-btn"
+          >
+            次へ →
+          </button>
         </div>
       )}
     </div>

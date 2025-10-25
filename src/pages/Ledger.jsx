@@ -80,9 +80,24 @@ const Ledger = () => {
     
     // 新しい販売履歴（salesHistory）から販売記録を取得
     const salesHistory = JSON.parse(localStorage.getItem('salesHistory') || '[]');
+    console.log('=== 古物台帳: 販売履歴読み込み ===');
+    console.log('salesHistory件数:', salesHistory.length);
+    console.log('salesHistoryサンプル:', salesHistory.slice(0, 3));
+    
     salesHistory.forEach(sale => {
+      console.log('処理中の販売記録:', sale.id, sale.salesChannel, sale.soldTo);
+      console.log('販売記録詳細:', {
+        id: sale.id,
+        salesChannel: sale.salesChannel,
+        soldTo: sale.soldTo,
+        soldAt: sale.soldAt,
+        soldPrice: sale.soldPrice,
+        managementNumbers: sale.managementNumbers
+      });
+      
       // 管理番号がある場合は各管理番号ごとに1レコード作成
       const managementNumbers = sale.managementNumbers || [];
+      console.log('管理番号:', managementNumbers);
       if (managementNumbers.length > 0) {
         managementNumbers.forEach(mgmtNumber => {
           allRecords.push({
@@ -95,9 +110,9 @@ const Ledger = () => {
             features: `${sale.colorLabel || ''} ランク:${sale.assessedRank}`.trim(),
             rank: sale.assessedRank,
             quantity: 1,
-            price: sale.soldPrice,
-            customerName: sale.soldTo,
-            customerAddress: sale.salesChannel === 'ebay' ? 'eBay販売' : '直接販売',
+            price: sale.salesChannel === 'zaico_sync' ? '-' : sale.soldPrice,
+            customerName: sale.salesChannel === 'zaico_sync' ? '-' : sale.soldTo,
+            customerAddress: sale.salesChannel === 'zaico_sync' ? '-' : (sale.salesChannel === 'ebay' ? 'eBay販売' : '直接販売'),
             customerOccupation: '-',
             customerAge: '-',
             saleDate: new Date(sale.soldAt).toLocaleDateString('ja-JP'),
@@ -107,7 +122,15 @@ const Ledger = () => {
           });
         });
       } else {
-        // 管理番号がない場合は従来通り
+        // 管理番号がない場合は従来通り（Zaico同期の場合は必ず表示）
+        console.log('管理番号なしの販売記録を処理:', sale.id, sale.salesChannel, sale.soldTo);
+        console.log('古物台帳レコード作成:', {
+          id: sale.id,
+          type: '販売',
+          productName: sale.productType === 'software' ? sale.softwareName : `${sale.manufacturerLabel} - ${sale.consoleLabel}`,
+          customerName: sale.soldTo,
+          salesChannel: sale.salesChannel
+        });
         allRecords.push({
           id: sale.id,
           date: new Date(sale.soldAt).toLocaleDateString('ja-JP'),
@@ -118,9 +141,9 @@ const Ledger = () => {
           features: `${sale.colorLabel || ''} ランク:${sale.assessedRank}`.trim(),
           rank: sale.assessedRank,
           quantity: sale.quantity,
-          price: sale.soldPrice,
-          customerName: sale.soldTo,
-          customerAddress: sale.salesChannel === 'ebay' ? 'eBay販売' : '直接販売',
+          price: sale.salesChannel === 'zaico_sync' ? '-' : sale.soldPrice,
+          customerName: sale.salesChannel === 'zaico_sync' ? '-' : sale.soldTo,
+          customerAddress: sale.salesChannel === 'zaico_sync' ? '-' : (sale.salesChannel === 'ebay' ? 'eBay販売' : '直接販売'),
           customerOccupation: '-',
           customerAge: '-',
           saleDate: new Date(sale.soldAt).toLocaleDateString('ja-JP'),
@@ -138,7 +161,82 @@ const Ledger = () => {
       return dateB - dateA;
     });
     
-    setRecords(allRecords);
+    // 重複レコードを削除（商品名、価格、日時の組み合わせで重複判定）
+    const uniqueRecords = [];
+    const seenCombinations = new Set();
+    
+    allRecords.forEach(record => {
+      // 重複判定のキーを作成（販売チャネルも含める）
+      const duplicateKey = `${record.productName}-${record.price}-${record.date}-${record.customerName}-${record.customerAddress}`;
+      
+      if (!seenCombinations.has(duplicateKey)) {
+        seenCombinations.add(duplicateKey);
+        uniqueRecords.push(record);
+      } else {
+        console.log('重複レコードをスキップ:', record.id, record.productName, record.price, record.customerAddress);
+      }
+    });
+    
+    // フィルター処理
+    let filteredRecords = uniqueRecords;
+    
+    // 日付フィルター
+    if (filters.dateFrom) {
+      const fromDate = new Date(filters.dateFrom);
+      filteredRecords = filteredRecords.filter(record => {
+        const recordDate = new Date(record.date.split('/').reverse().join('-'));
+        return recordDate >= fromDate;
+      });
+    }
+    
+    if (filters.dateTo) {
+      const toDate = new Date(filters.dateTo);
+      filteredRecords = filteredRecords.filter(record => {
+        const recordDate = new Date(record.date.split('/').reverse().join('-'));
+        return recordDate <= toDate;
+      });
+    }
+    
+    // 取引種別フィルター
+    if (filters.transactionType) {
+      filteredRecords = filteredRecords.filter(record => record.type === filters.transactionType);
+    }
+    
+    // 商品名検索
+    if (filters.productSearch) {
+      const searchTerm = filters.productSearch.toLowerCase();
+      filteredRecords = filteredRecords.filter(record => 
+        record.productName.toLowerCase().includes(searchTerm)
+      );
+    }
+    
+    // SKU検索
+    if (filters.skuSearch) {
+      const searchTerm = filters.skuSearch.toLowerCase();
+      filteredRecords = filteredRecords.filter(record => 
+        record.sku.toLowerCase().includes(searchTerm) ||
+        record.managementNumber.toLowerCase().includes(searchTerm)
+      );
+    }
+    
+    // 顧客名検索
+    if (filters.customerSearch) {
+      const searchTerm = filters.customerSearch.toLowerCase();
+      filteredRecords = filteredRecords.filter(record => 
+        record.customerName.toLowerCase().includes(searchTerm) ||
+        record.buyer.toLowerCase().includes(searchTerm)
+      );
+    }
+    
+    console.log('=== 古物台帳: 最終レコード ===');
+    console.log('元のレコード数:', allRecords.length);
+    console.log('重複削除後のレコード数:', uniqueRecords.length);
+    console.log('フィルター後のレコード数:', filteredRecords.length);
+    console.log('販売レコード数:', filteredRecords.filter(r => r.type === '販売').length);
+    console.log('Zaico同期レコード数:', filteredRecords.filter(r => r.customerAddress === 'Zaico同期').length);
+    console.log('レコードサンプル:', filteredRecords.slice(0, 5));
+    
+    setRecords(filteredRecords);
   };
 
   const [filters, setFilters] = useState({
@@ -155,7 +253,8 @@ const Ledger = () => {
   };
 
   const handleSearch = () => {
-    alert('検索を実行しました');
+    // フィルター条件に基づいてレコードを再読み込み
+    loadLedgerRecords();
   };
 
   const handleClearSearch = () => {
@@ -167,6 +266,71 @@ const Ledger = () => {
       skuSearch: '',
       customerSearch: ''
     });
+    // フィルターをクリアした後、レコードを再読み込み
+    loadLedgerRecords();
+  };
+
+  // 重複データをクリーンアップする関数
+  const cleanupDuplicateRecords = () => {
+    const salesHistory = JSON.parse(localStorage.getItem('salesHistory') || '[]');
+    const uniqueSales = [];
+    const seenCombinations = new Set();
+    
+    console.log('=== 重複クリーンアップ開始 ===');
+    console.log('元の販売履歴件数:', salesHistory.length);
+    
+    salesHistory.forEach(sale => {
+      // 重複判定のキーを作成（商品名、価格、日時、顧客名、販売チャネルの組み合わせ）
+      const duplicateKey = `${sale.inventoryItemId}-${sale.soldPrice}-${sale.soldAt}-${sale.soldTo}-${sale.salesChannel}`;
+      
+      if (!seenCombinations.has(duplicateKey)) {
+        seenCombinations.add(duplicateKey);
+        uniqueSales.push(sale);
+        console.log('保持:', sale.id, sale.soldTo, sale.soldPrice, sale.salesChannel);
+      } else {
+        console.log('重複削除:', sale.id, sale.soldTo, sale.soldPrice, sale.salesChannel);
+      }
+    });
+    
+    localStorage.setItem('salesHistory', JSON.stringify(uniqueSales));
+    console.log('重複クリーンアップ完了:', {
+      元の件数: salesHistory.length,
+      クリーンアップ後: uniqueSales.length,
+      削除件数: salesHistory.length - uniqueSales.length
+    });
+    
+    // 古物台帳を再読み込み
+    loadLedgerRecords();
+  };
+
+  const clearAllRecords = () => {
+    if (window.confirm('⚠️ 古物台帳の全記録を削除します。この操作は取り消せません。\n\n本当に実行しますか？')) {
+      if (window.confirm('🚨 最終確認：古物台帳の全記録を完全に削除します。\n\nこの操作は絶対に取り消せません。\n\n本当に実行しますか？')) {
+        console.log('=== 古物台帳全記録削除開始 ===');
+        
+        // 販売履歴をクリア
+        localStorage.removeItem('salesHistory');
+        console.log('販売履歴をクリアしました');
+        
+        // 古物台帳データをクリア
+        localStorage.removeItem('ledger');
+        console.log('古物台帳データをクリアしました');
+        
+        // 在庫データをクリア
+        localStorage.removeItem('inventory');
+        console.log('在庫データをクリアしました');
+        
+        // 買取申請データをクリア
+        localStorage.removeItem('allApplications');
+        console.log('買取申請データをクリアしました');
+        
+        // 古物台帳を再読み込み
+        loadLedgerRecords();
+        
+        alert('✅ 古物台帳の全記録を削除しました。');
+        console.log('古物台帳全記録削除完了');
+      }
+    }
   };
 
   const handleExportData = () => {
@@ -400,6 +564,12 @@ const Ledger = () => {
             <span className="record-count">全{records.length}件</span>
           </div>
           <div className="right-actions">
+            <button onClick={cleanupDuplicateRecords} style={{backgroundColor: '#ff6b6b', color: 'white'}}>
+              重複クリーンアップ
+            </button>
+            <button onClick={clearAllRecords} style={{backgroundColor: '#dc3545', color: 'white'}}>
+              🗑️ 全記録クリア
+            </button>
             <button onClick={handleExportData}>エクスポート</button>
             <button onClick={() => window.print()}>印刷</button>
           </div>

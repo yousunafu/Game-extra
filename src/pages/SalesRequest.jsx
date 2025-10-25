@@ -186,25 +186,26 @@ const SalesRequest = () => {
     const colorLabel = currentItem.color ? (colorsEN[currentItem.color] || currentItem.color) : '';
     
     const conditionLabels = {
-      'brand_new': 'Brand New',
-      'like_new': 'Like New',
-      'excellent': 'Excellent',
-      'good': 'Good',
-      'acceptable': 'Acceptable',
-      'junk': 'For Parts'
+      'S': 'S (Mint Condition / Near Unused)',
+      'A': 'A (Excellent / No Noticeable Damage)',
+      'B': 'B (Used / Normal Wear / Fully Functional)',
+      'C': 'C (Some Damage / Stains / Works Fine)'
     };
     const conditionLabel = conditionLabels[currentItem.condition] || '';
 
     const packageTypeLabels = currentItem.productType === 'console' ? {
-      'complete': 'Complete Set',
-      'near_complete': 'Near Complete',
-      'console_only': 'Console Only',
-      'junk': 'For Parts',
+      'complete': 'Complete Set (Box, Manual, Charger, All Accessories)',
+      'no-box': 'No Box',
+      'no-manual': 'No Manual',
+      'partial': 'Some Accessories Missing',
+      'body-only': 'Console Only',
       'custom': 'Custom'
     } : {
-      'complete': 'Complete Set',
-      'box_manual': 'Box + Manual',
-      'software_only': 'Disc/Cartridge Only',
+      'complete': 'Complete Set (Box, Manual, All Accessories)',
+      'no-box': 'No Box',
+      'no-manual': 'No Manual',
+      'partial': 'Some Accessories Missing',
+      'body-only': 'Disc/Cartridge Only',
       'custom': 'Custom'
     };
     const packageTypeLabel = packageTypeLabels[currentItem.packageType] || '';
@@ -399,12 +400,10 @@ const SalesRequest = () => {
             onChange={(e) => setCurrentItem({...currentItem, condition: e.target.value})}
           >
             <option value="">Select condition</option>
-            <option value="brand_new">Brand New / Factory Sealed</option>
-            <option value="like_new">Like New / Open Box</option>
-            <option value="excellent">Excellent / Very Good</option>
-            <option value="good">Good / Used - Good</option>
-            <option value="acceptable">Acceptable / Fair</option>
-            <option value="junk">For Parts / Junk</option>
+            <option value="S">S (Mint Condition / Near Unused)</option>
+            <option value="A">A (Excellent / No Noticeable Damage)</option>
+            <option value="B">B (Used / Normal Wear / Fully Functional)</option>
+            <option value="C">C (Some Damage / Stains / Works Fine)</option>
           </select>
         </div>
 
@@ -418,11 +417,12 @@ const SalesRequest = () => {
                 onChange={(e) => handlePackageTypeChange(e.target.value)}
               >
                 <option value="">Select package type</option>
-                <option value="complete">Complete Set (Box, Manual, All Accessories)</option>
-                <option value="near_complete">Near Complete (No Box/Manual)</option>
-                <option value="console_only">Console Only</option>
+                <option value="complete">Complete Set (Box, Manual, Charger, All Accessories)</option>
+                <option value="no-box">No Box</option>
+                <option value="no-manual">No Manual</option>
+                <option value="partial">Some Accessories Missing</option>
+                <option value="body-only">Console Only</option>
                 <option value="custom">Custom (Select below)</option>
-                <option value="junk">For Parts / Junk</option>
               </select>
             </div>
 
@@ -507,9 +507,11 @@ const SalesRequest = () => {
                 onChange={(e) => handlePackageTypeChange(e.target.value)}
               >
                 <option value="">Select package type</option>
-                <option value="complete">Complete Set (Box, Manual, Bonus Items)</option>
-                <option value="box_manual">Box + Manual Only</option>
-                <option value="software_only">Disc/Cartridge Only</option>
+                <option value="complete">Complete Set (Box, Manual, All Accessories)</option>
+                <option value="no-box">No Box</option>
+                <option value="no-manual">No Manual</option>
+                <option value="partial">Some Accessories Missing</option>
+                <option value="body-only">Disc/Cartridge Only</option>
                 <option value="custom">Custom (Select below)</option>
               </select>
             </div>
