@@ -3,15 +3,13 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 
-const ZAICO_API_BASE_URL = 'https://web.zaico.co.jp/api/v1';
+const ZAICO_API_BASE_URL = 'https://api.zaico.co.jp/v1';
 const ZAICO_API_TOKEN = process.env.ZAICO_API_TOKEN; // 環境変数から取得
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // 環境変数チェック
+  // 環境変数チェック（警告のみ）
   if (!ZAICO_API_TOKEN) {
-    return res.status(500).json({ 
-      error: 'ZAICO_API_TOKEN is not configured' 
-    });
+    console.warn('ZAICO_API_TOKEN is not configured, using client API key only');
   }
 
   // メソッド制限（GET, POST, PUT, DELETEのみ許可）
@@ -61,15 +59,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // レスポンスを取得
     const text = await response.text();
+    console.log('Zaico API レスポンス:', {
+      status: response.status,
+      headers: Object.fromEntries(response.headers.entries()),
+      body: text.substring(0, 500) // 最初の500文字のみログ出力
+    });
+
     let json;
     try {
       json = JSON.parse(text);
-    } catch {
-      json = null;
+    } catch (parseError) {
+      console.error('JSON解析エラー:', parseError);
+      console.error('レスポンス内容:', text);
+      return res.status(500).json({ 
+        error: 'JSON parse error',
+        message: text,
+        status: response.status
+      });
     }
 
     // ステータスコードとレスポンスを返す
-    res.status(response.status).json(json || { message: text });
+    res.status(response.status).json(json);
 
   } catch (error) {
     console.error('zaico API中継エラー:', error);
