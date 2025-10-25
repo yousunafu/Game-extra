@@ -1,5 +1,12 @@
 // Zaico API連携ユーティリティ
-const ZAICO_API_BASE_URL = '/api/zaico';
+// 複数のCORS回避方法を試す
+const CORS_PROXIES = [
+  'https://cors-anywhere.herokuapp.com/https://api.zaico.co.jp/v1',
+  'https://api.allorigins.win/raw?url=https://api.zaico.co.jp/v1',
+  'https://api.zaico.co.jp/v1' // 直接呼び出し（最後の手段）
+];
+
+const ZAICO_API_BASE_URL = CORS_PROXIES[0]; // 最初のプロキシを試す
 
 // APIキーを取得する関数
 const getApiKey = () => {
@@ -10,51 +17,81 @@ const getApiKey = () => {
   return apiKey;
 };
 
-// Zaico API呼び出し
+// Zaico API呼び出し（複数プロキシを試す）
 export const callZaicoApi = async (endpoint, method = 'GET', data = null) => {
-  try {
-    const apiKey = getApiKey();
-    const url = `${ZAICO_API_BASE_URL}${endpoint}`;
-    const options = {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-KEY': apiKey
+  const apiKey = getApiKey();
+  
+  // 複数のプロキシを順番に試す
+  for (let i = 0; i < CORS_PROXIES.length; i++) {
+    try {
+      const baseUrl = CORS_PROXIES[i];
+      const url = `${baseUrl}${endpoint}`;
+      
+      const options = {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        }
+      };
+
+      if (data && (method === 'POST' || method === 'PUT')) {
+        options.body = JSON.stringify(data);
       }
-    };
 
-    if (data && (method === 'POST' || method === 'PUT')) {
-      options.body = JSON.stringify(data);
+      console.log(`=== zaico API呼び出し (試行 ${i + 1}/${CORS_PROXIES.length}) ===`);
+      console.log(`${method} ${url}`);
+      if (data) console.log('送信データ:', data);
+
+      const response = await fetch(url, options);
+      
+      if (!response.ok) {
+        // レスポンスの内容を確認
+        const responseText = await response.text();
+        console.error(`API エラーレスポンス (試行 ${i + 1}):`, responseText);
+        
+        // 最後の試行でない場合は次のプロキシを試す
+        if (i < CORS_PROXIES.length - 1) {
+          console.log(`試行 ${i + 1} 失敗、次のプロキシを試します...`);
+          continue;
+        }
+        throw new Error(`HTTP error! status: ${response.status} - ${responseText}`);
+      }
+
+      // レスポンスがJSONかどうか確認
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const responseText = await response.text();
+        console.error(`非JSONレスポンス (試行 ${i + 1}):`, responseText);
+        
+        // 最後の試行でない場合は次のプロキシを試す
+        if (i < CORS_PROXIES.length - 1) {
+          console.log(`試行 ${i + 1} 失敗、次のプロキシを試します...`);
+          continue;
+        }
+        throw new Error(`API レスポンスがJSON形式ではありません: ${responseText}`);
+      }
+
+      const result = await response.json();
+      console.log('zaico API応答:', result);
+      return result;
+      
+    } catch (error) {
+      console.error(`zaico API呼び出しエラー (試行 ${i + 1}):`, error);
+      
+      // 最後の試行でない場合は次のプロキシを試す
+      if (i < CORS_PROXIES.length - 1) {
+        console.log(`試行 ${i + 1} 失敗、次のプロキシを試します...`);
+        continue;
+      }
+      
+      // すべての試行が失敗した場合
+      throw error;
     }
-
-    console.log(`=== zaico API呼び出し ===`);
-    console.log(`${method} ${url}`);
-    if (data) console.log('送信データ:', data);
-
-    const response = await fetch(url, options);
-    
-    if (!response.ok) {
-      // レスポンスの内容を確認
-      const responseText = await response.text();
-      console.error('API エラーレスポンス:', responseText);
-      throw new Error(`HTTP error! status: ${response.status} - ${responseText}`);
-    }
-
-    // レスポンスがJSONかどうか確認
-    const contentType = response.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
-      const responseText = await response.text();
-      console.error('非JSONレスポンス:', responseText);
-      throw new Error(`API レスポンスがJSON形式ではありません: ${responseText}`);
-    }
-
-    const result = await response.json();
-    console.log('zaico API応答:', result);
-    return result;
-  } catch (error) {
-    console.error('zaico API呼び出しエラー:', error);
-    throw error;
   }
+  
+  // ここに到達することはないはずだが、念のため
+  throw new Error('すべてのプロキシが失敗しました');
 };
 
 // プロジェクトデータをZaico形式に変換
