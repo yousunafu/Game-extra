@@ -1,8 +1,9 @@
 // Zaico API連携ユーティリティ
-// 複数のCORS回避方法を試す
+// 複数のCORS回避方法を試す（バックエンドプロキシを最優先）
 const CORS_PROXIES = [
-  'https://cors-anywhere.herokuapp.com/https://api.zaico.co.jp/v1',
+  '/api/zaico', // バックエンドプロキシ（最優先）
   'https://api.allorigins.win/raw?url=https://api.zaico.co.jp/v1',
+  'https://corsproxy.io/?https://api.zaico.co.jp/v1',
   'https://api.zaico.co.jp/v1' // 直接呼び出し（最後の手段）
 ];
 
@@ -25,15 +26,30 @@ export const callZaicoApi = async (endpoint, method = 'GET', data = null) => {
   for (let i = 0; i < CORS_PROXIES.length; i++) {
     try {
       const baseUrl = CORS_PROXIES[i];
-      const url = `${baseUrl}${endpoint}`;
+      const isBackendProxy = baseUrl.startsWith('/api/');
+      
+      // バックエンドプロキシの場合は特別な処理
+      const url = isBackendProxy 
+        ? `${baseUrl}/${endpoint.replace(/^\//, '')}` // バックエンドプロキシ用のパス構築
+        : `${baseUrl}${endpoint}`;
       
       const options = {
         method,
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        }
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        mode: 'cors',
+        credentials: 'omit'
       };
+      
+      // バックエンドプロキシの場合はAPIキーを特別なヘッダーで送信
+      if (isBackendProxy) {
+        options.headers['X-API-KEY'] = apiKey;
+      } else {
+        options.headers['Authorization'] = `Bearer ${apiKey}`;
+      }
 
       if (data && (method === 'POST' || method === 'PUT')) {
         options.body = JSON.stringify(data);
@@ -79,14 +95,31 @@ export const callZaicoApi = async (endpoint, method = 'GET', data = null) => {
     } catch (error) {
       console.error(`zaico API呼び出しエラー (試行 ${i + 1}):`, error);
       
+      // エラーの詳細を分析
+      let errorDetails = '';
+      if (error.name === 'TypeError' && error.message.includes('NetworkError')) {
+        errorDetails = 'ネットワークエラー: CORSポリシーによりブロックされています';
+      } else if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+        errorDetails = '接続エラー: プロキシサーバーに接続できません';
+      } else if (error.message.includes('403')) {
+        errorDetails = 'アクセス拒否: プロキシサーバーがリクエストを拒否しました';
+      } else if (error.message.includes('CORS')) {
+        errorDetails = 'CORSエラー: ブラウザの同一生成元ポリシーによりブロックされています';
+      }
+      
+      console.error(`エラー詳細 (試行 ${i + 1}):`, errorDetails);
+      
       // 最後の試行でない場合は次のプロキシを試す
       if (i < CORS_PROXIES.length - 1) {
         console.log(`試行 ${i + 1} 失敗、次のプロキシを試します...`);
         continue;
       }
       
-      // すべての試行が失敗した場合
-      throw error;
+      // すべての試行が失敗した場合、詳細なエラーメッセージを提供
+      const finalError = new Error(`すべてのプロキシが失敗しました。最後のエラー: ${error.message}${errorDetails ? ` (${errorDetails})` : ''}`);
+      finalError.originalError = error;
+      finalError.errorDetails = errorDetails;
+      throw finalError;
     }
   }
   
