@@ -1,25 +1,25 @@
-// zaico API中継サーバー
-// フロントエンドからzaico APIへの安全な中継
-
-import type { NextApiRequest, NextApiResponse } from 'next';
-
+// Vercel Functions for Zaico API proxy
 const ZAICO_API_BASE_URL = 'https://api.zaico.co.jp/v1';
-const ZAICO_API_TOKEN = process.env.ZAICO_API_TOKEN; // 環境変数から取得
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req, res) {
   console.log('=== Zaico API Proxy Called ===');
   console.log('Method:', req.method);
   console.log('URL:', req.url);
   console.log('Query:', req.query);
   console.log('Headers:', req.headers);
 
-  // 環境変数チェック（警告のみ）
-  if (!ZAICO_API_TOKEN) {
-    console.warn('ZAICO_API_TOKEN is not configured, using client API key only');
+  // CORS設定
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-API-KEY');
+
+  // OPTIONSリクエストの処理
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
   }
 
-  // メソッド制限（GET, POST, PUT, DELETEのみ許可）
-  if (!['GET', 'POST', 'PUT', 'DELETE'].includes(req.method || '')) {
+  // メソッド制限
+  if (!['GET', 'POST', 'PUT', 'DELETE'].includes(req.method)) {
     return res.status(405).json({ 
       error: 'Method not allowed' 
     });
@@ -44,20 +44,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       : url;
 
     // フロントエンドから送信されたAPIキーを取得
-    const clientApiKey = req.headers['x-api-key'] as string;
-    const apiKey = clientApiKey || ZAICO_API_TOKEN;
-
-    if (!apiKey) {
+    const clientApiKey = req.headers['x-api-key'];
+    
+    if (!clientApiKey) {
       return res.status(401).json({ 
         error: 'API key is required' 
       });
     }
 
+    console.log('Calling Zaico API:', fullUrl);
+    console.log('Using API key:', clientApiKey ? 'provided' : 'missing');
+
     // zaico APIにリクエスト
     const response = await fetch(fullUrl, {
       method: req.method,
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        'Authorization': `Bearer ${clientApiKey}`,
         'Content-Type': 'application/json'
       },
       body: req.method !== 'GET' ? JSON.stringify(req.body) : undefined
@@ -65,10 +67,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // レスポンスを取得
     const text = await response.text();
-    console.log('Zaico API レスポンス:', {
+    console.log('Zaico API Response:', {
       status: response.status,
       headers: Object.fromEntries(response.headers.entries()),
-      body: text.substring(0, 500) // 最初の500文字のみログ出力
+      body: text.substring(0, 500)
     });
 
     let json;
@@ -91,7 +93,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.error('zaico API中継エラー:', error);
     res.status(500).json({ 
       error: 'Internal server error',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error.message
     });
   }
 }
