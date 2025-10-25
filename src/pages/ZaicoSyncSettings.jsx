@@ -74,7 +74,22 @@ const ZaicoSyncSettings = () => {
     } catch (error) {
       console.error('接続テストエラー:', error);
       setConnectionStatus('接続失敗');
-      alert(`接続に失敗しました: ${error.message}`);
+      
+      // エラーメッセージを詳細に表示
+      let errorMessage = `接続に失敗しました: ${error.message}`;
+      
+      if (error.message.includes('API レスポンスがJSON形式ではありません')) {
+        errorMessage += '\n\n🔍 問題: APIがHTMLエラーページを返しています\n';
+        errorMessage += '📋 解決方法: APIキーまたはエンドポイントURLを確認してください';
+      } else if (error.message.includes('HTTP error! status: 401')) {
+        errorMessage += '\n\n🔑 問題: 認証に失敗しました\n';
+        errorMessage += '📋 解決方法: APIキーが正しいか確認してください';
+      } else if (error.message.includes('HTTP error! status: 404')) {
+        errorMessage += '\n\n🌐 問題: APIエンドポイントが見つかりません\n';
+        errorMessage += '📋 解決方法: APIのベースURLを確認してください';
+      }
+      
+      alert(errorMessage);
     } finally {
       setIsTestingConnection(false);
     }

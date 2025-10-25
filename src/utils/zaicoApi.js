@@ -19,7 +19,7 @@ export const callZaicoApi = async (endpoint, method = 'GET', data = null) => {
       method,
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'X-API-KEY': apiKey
       }
     };
 
@@ -34,7 +34,18 @@ export const callZaicoApi = async (endpoint, method = 'GET', data = null) => {
     const response = await fetch(url, options);
     
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      // レスポンスの内容を確認
+      const responseText = await response.text();
+      console.error('API エラーレスポンス:', responseText);
+      throw new Error(`HTTP error! status: ${response.status} - ${responseText}`);
+    }
+
+    // レスポンスがJSONかどうか確認
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      const responseText = await response.text();
+      console.error('非JSONレスポンス:', responseText);
+      throw new Error(`API レスポンスがJSON形式ではありません: ${responseText}`);
     }
 
     const result = await response.json();

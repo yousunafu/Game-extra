@@ -39,11 +39,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ? `${url}?${queryParams.toString()}` 
       : url;
 
+    // フロントエンドから送信されたAPIキーを取得
+    const clientApiKey = req.headers['x-api-key'] as string;
+    const apiKey = clientApiKey || ZAICO_API_TOKEN;
+
+    if (!apiKey) {
+      return res.status(401).json({ 
+        error: 'API key is required' 
+      });
+    }
+
     // zaico APIにリクエスト
     const response = await fetch(fullUrl, {
       method: req.method,
       headers: {
-        'Authorization': `Bearer ${ZAICO_API_TOKEN}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json'
       },
       body: req.method !== 'GET' ? JSON.stringify(req.body) : undefined
