@@ -7,6 +7,12 @@ const ZAICO_API_BASE_URL = 'https://api.zaico.co.jp/v1';
 const ZAICO_API_TOKEN = process.env.ZAICO_API_TOKEN; // 環境変数から取得
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  console.log('=== Zaico API Proxy Called ===');
+  console.log('Method:', req.method);
+  console.log('URL:', req.url);
+  console.log('Query:', req.query);
+  console.log('Headers:', req.headers);
+
   // 環境変数チェック（警告のみ）
   if (!ZAICO_API_TOKEN) {
     console.warn('ZAICO_API_TOKEN is not configured, using client API key only');
