@@ -1,31 +1,47 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './Ledger.css';
 
 const Ledger = () => {
   const [salesRecords, setSalesRecords] = useState([]);
   const [expandedRecord, setExpandedRecord] = useState(null);
   const [records, setRecords] = useState([]);
+  const [filters, setFilters] = useState({
+    dateFrom: '',
+    dateTo: '',
+    transactionType: '',
+    productSearch: '',
+    skuSearch: '',
+    customerSearch: ''
+  });
 
   // 販売記録を読み込み
   useEffect(() => {
     const ledger = JSON.parse(localStorage.getItem('salesLedger') || '[]');
     setSalesRecords(ledger);
-    
-    // 古物台帳用のレコードを生成
-    loadLedgerRecords();
   }, []);
 
-  const loadLedgerRecords = () => {
+  const loadLedgerRecords = useCallback(() => {
     const allRecords = [];
     
     // 在庫データから買取記録を取得
     const inventory = JSON.parse(localStorage.getItem('inventory') || '[]');
     const allApplications = JSON.parse(localStorage.getItem('allApplications') || '[]');
     
+    // デバッグ情報をコンソールに出力
+    console.log('=== 古物台帳: データ読み込み状況 ===');
+    console.log('inventory件数:', inventory.length);
+    console.log('allApplications件数:', allApplications.length);
+    console.log('inventoryサンプル:', inventory.slice(0, 2));
+    console.log('allApplicationsサンプル:', allApplications.slice(0, 2));
+    
     inventory.forEach(item => {
       if (item.sourceType === 'customer' && item.applicationNumber) {
         const app = allApplications.find(a => a.applicationNumber === item.applicationNumber);
-        if (app && app.customer) {
+        
+        // appがなくても、inventoryにcustomer情報があれば使用
+        const customerInfo = app && app.customer ? app.customer : (item.customer || null);
+        
+        if (customerInfo) {
           // 管理番号がある場合は各管理番号ごとに1レコード作成
           const managementNumbers = item.managementNumbers || [];
           if (managementNumbers.length > 0) {
@@ -41,10 +57,10 @@ const Ledger = () => {
                 rank: item.assessedRank,
                 quantity: 1,
                 price: item.acquisitionPrice || item.buybackPrice,
-                customerName: app.customer.name,
-                customerAddress: `${app.customer.postalCode || ''} ${app.customer.address || ''}`.trim(),
-                customerOccupation: app.customer.occupation || '-',
-                customerAge: app.customer.birthDate ? Math.floor((new Date() - new Date(app.customer.birthDate)) / (365.25 * 24 * 60 * 60 * 1000)) : '-',
+                customerName: customerInfo.name,
+                customerAddress: `${customerInfo.postalCode || ''} ${customerInfo.address || ''}`.trim(),
+                customerOccupation: customerInfo.occupation || '-',
+                customerAge: customerInfo.birthDate ? Math.floor((new Date() - new Date(customerInfo.birthDate)) / (365.25 * 24 * 60 * 60 * 1000)) : '-',
                 saleDate: '-',
                 salePrice: '-',
                 buyer: '-',
@@ -64,10 +80,10 @@ const Ledger = () => {
               rank: item.assessedRank,
               quantity: item.quantity,
               price: item.acquisitionPrice || item.buybackPrice,
-              customerName: app.customer.name,
-              customerAddress: `${app.customer.postalCode || ''} ${app.customer.address || ''}`.trim(),
-              customerOccupation: app.customer.occupation || '-',
-              customerAge: app.customer.birthDate ? Math.floor((new Date() - new Date(app.customer.birthDate)) / (365.25 * 24 * 60 * 60 * 1000)) : '-',
+              customerName: customerInfo.name,
+              customerAddress: `${customerInfo.postalCode || ''} ${customerInfo.address || ''}`.trim(),
+              customerOccupation: customerInfo.occupation || '-',
+              customerAge: customerInfo.birthDate ? Math.floor((new Date() - new Date(customerInfo.birthDate)) / (365.25 * 24 * 60 * 60 * 1000)) : '-',
               saleDate: '-',
               salePrice: '-',
               buyer: '-',
@@ -95,6 +111,59 @@ const Ledger = () => {
         managementNumbers: sale.managementNumbers
       });
       
+      // 買取記録を生成（buybackInfoがある場合）
+      if (sale.buybackInfo && sale.buybackInfo.customer) {
+        const buybackInfo = sale.buybackInfo;
+        const buybackManagementNumbers = sale.managementNumbers || [];
+        
+        if (buybackManagementNumbers.length > 0) {
+          buybackManagementNumbers.forEach(mgmtNumber => {
+            allRecords.push({
+              id: `BUYBACK-${sale.id}-${mgmtNumber}`,
+              date: new Date(buybackInfo.buybackDate).toLocaleDateString('ja-JP'),
+              type: '買取',
+              sku: sale.inventoryItemId,
+              managementNumber: mgmtNumber,
+              productName: sale.productType === 'software' ? sale.softwareName : `${sale.manufacturerLabel} - ${sale.consoleLabel}`,
+              features: `${sale.colorLabel || ''} ランク:${sale.assessedRank}`.trim(),
+              rank: sale.assessedRank,
+              quantity: 1,
+              price: buybackInfo.buybackPrice,
+              customerName: buybackInfo.customer.name,
+              customerAddress: `${buybackInfo.customer.postalCode || ''} ${buybackInfo.customer.address || ''}`.trim(),
+              customerOccupation: buybackInfo.customer.occupation || '-',
+              customerAge: buybackInfo.customer.birthDate ? Math.floor((new Date() - new Date(buybackInfo.customer.birthDate)) / (365.25 * 24 * 60 * 60 * 1000)) : '-',
+              saleDate: '-',
+              salePrice: '-',
+              buyer: '-',
+              status: 'sold' // 売却済み
+            });
+          });
+        } else {
+          // 管理番号なし
+          allRecords.push({
+            id: `BUYBACK-${sale.id}`,
+            date: new Date(buybackInfo.buybackDate).toLocaleDateString('ja-JP'),
+            type: '買取',
+            sku: sale.inventoryItemId,
+            managementNumber: '-',
+            productName: sale.productType === 'software' ? sale.softwareName : `${sale.manufacturerLabel} - ${sale.consoleLabel}`,
+            features: `${sale.colorLabel || ''} ランク:${sale.assessedRank}`.trim(),
+            rank: sale.assessedRank,
+            quantity: sale.quantity,
+            price: buybackInfo.buybackPrice,
+            customerName: buybackInfo.customer.name,
+            customerAddress: `${buybackInfo.customer.postalCode || ''} ${buybackInfo.customer.address || ''}`.trim(),
+            customerOccupation: buybackInfo.customer.occupation || '-',
+            customerAge: buybackInfo.customer.birthDate ? Math.floor((new Date() - new Date(buybackInfo.customer.birthDate)) / (365.25 * 24 * 60 * 60 * 1000)) : '-',
+            saleDate: '-',
+            salePrice: '-',
+            buyer: '-',
+            status: 'sold' // 売却済み
+          });
+        }
+      }
+      
       // 管理番号がある場合は各管理番号ごとに1レコード作成
       const managementNumbers = sale.managementNumbers || [];
       console.log('管理番号:', managementNumbers);
@@ -110,9 +179,9 @@ const Ledger = () => {
             features: `${sale.colorLabel || ''} ランク:${sale.assessedRank}`.trim(),
             rank: sale.assessedRank,
             quantity: 1,
-            price: sale.salesChannel === 'zaico_sync' ? '-' : sale.soldPrice,
-            customerName: sale.salesChannel === 'zaico_sync' ? '-' : sale.soldTo,
-            customerAddress: sale.salesChannel === 'zaico_sync' ? '-' : (sale.salesChannel === 'ebay' ? 'eBay販売' : '直接販売'),
+            price: '-',
+            customerName: '-',
+            customerAddress: '-',
             customerOccupation: '-',
             customerAge: '-',
             saleDate: new Date(sale.soldAt).toLocaleDateString('ja-JP'),
@@ -141,9 +210,9 @@ const Ledger = () => {
           features: `${sale.colorLabel || ''} ランク:${sale.assessedRank}`.trim(),
           rank: sale.assessedRank,
           quantity: sale.quantity,
-          price: sale.salesChannel === 'zaico_sync' ? '-' : sale.soldPrice,
-          customerName: sale.salesChannel === 'zaico_sync' ? '-' : sale.soldTo,
-          customerAddress: sale.salesChannel === 'zaico_sync' ? '-' : (sale.salesChannel === 'ebay' ? 'eBay販売' : '直接販売'),
+          price: '-',
+          customerName: '-',
+          customerAddress: '-',
           customerOccupation: '-',
           customerAge: '-',
           saleDate: new Date(sale.soldAt).toLocaleDateString('ja-JP'),
@@ -166,14 +235,14 @@ const Ledger = () => {
     const seenCombinations = new Set();
     
     allRecords.forEach(record => {
-      // 重複判定のキーを作成（販売チャネルも含める）
-      const duplicateKey = `${record.productName}-${record.price}-${record.date}-${record.customerName}-${record.customerAddress}`;
+      // 重複判定のキーを作成（管理番号も含める）
+      const duplicateKey = `${record.productName}-${record.price}-${record.date}-${record.customerName}-${record.customerAddress}-${record.managementNumber}`;
       
       if (!seenCombinations.has(duplicateKey)) {
         seenCombinations.add(duplicateKey);
         uniqueRecords.push(record);
       } else {
-        console.log('重複レコードをスキップ:', record.id, record.productName, record.price, record.customerAddress);
+        console.log('重複レコードをスキップ:', record.id, record.productName, record.price, record.customerAddress, record.managementNumber);
       }
     });
     
@@ -199,7 +268,8 @@ const Ledger = () => {
     
     // 取引種別フィルター
     if (filters.transactionType) {
-      filteredRecords = filteredRecords.filter(record => record.type === filters.transactionType);
+      const typeMap = { 'purchase': '買取', 'sale': '販売' };
+      filteredRecords = filteredRecords.filter(record => record.type === typeMap[filters.transactionType]);
     }
     
     // 商品名検索
@@ -224,7 +294,7 @@ const Ledger = () => {
       const searchTerm = filters.customerSearch.toLowerCase();
       filteredRecords = filteredRecords.filter(record => 
         record.customerName.toLowerCase().includes(searchTerm) ||
-        record.buyer.toLowerCase().includes(searchTerm)
+        (record.buyer && record.buyer.toLowerCase().includes(searchTerm))
       );
     }
     
@@ -237,16 +307,12 @@ const Ledger = () => {
     console.log('レコードサンプル:', filteredRecords.slice(0, 5));
     
     setRecords(filteredRecords);
-  };
+  }, [filters]);
 
-  const [filters, setFilters] = useState({
-    dateFrom: '',
-    dateTo: '',
-    transactionType: '',
-    productSearch: '',
-    skuSearch: '',
-    customerSearch: ''
-  });
+  // 初期読み込み
+  useEffect(() => {
+    loadLedgerRecords();
+  }, [loadLedgerRecords]);
 
   const handleFilterChange = (field, value) => {
     setFilters({ ...filters, [field]: value });
@@ -267,7 +333,10 @@ const Ledger = () => {
       customerSearch: ''
     });
     // フィルターをクリアした後、レコードを再読み込み
-    loadLedgerRecords();
+    setTimeout(() => {
+      console.log('フィルターをクリアしました。古物台帳を再読み込みします。');
+      loadLedgerRecords();
+    }, 100);
   };
 
   // 重複データをクリーンアップする関数
@@ -427,24 +496,28 @@ const Ledger = () => {
       <div className="info-section">
         <div className="info-item">
           <div className="info-label">販売記録件数</div>
-          <div className="info-value">{salesRecords.length}</div>
+          <div className="info-value">{records.filter(r => r.type === '販売').length}</div>
         </div>
         <div className="info-item">
           <div className="info-label">総仕入れ額</div>
           <div className="info-value" style={{ color: '#e74c3c' }}>
-            ¥{salesRecords.reduce((sum, r) => sum + r.summary.totalAcquisitionCost, 0).toLocaleString()}
+            ¥{records.filter(r => r.type === '買取').reduce((sum, r) => sum + (Number(r.price) || 0), 0).toLocaleString()}
           </div>
         </div>
         <div className="info-item">
           <div className="info-label">総販売額</div>
           <div className="info-value" style={{ color: '#3498db' }}>
-            ¥{salesRecords.reduce((sum, r) => sum + r.summary.totalSalesAmount, 0).toLocaleString()}
+            ¥{records.filter(r => r.type === '販売').reduce((sum, r) => sum + (Number(r.salePrice) || 0), 0).toLocaleString()}
           </div>
         </div>
         <div className="info-item">
           <div className="info-label">総利益</div>
           <div className="info-value" style={{ color: '#27ae60' }}>
-            ¥{salesRecords.reduce((sum, r) => sum + r.summary.totalProfit, 0).toLocaleString()}
+            ¥{records.filter(r => r.type === '販売').reduce((sum, r) => {
+              const salePrice = Number(r.salePrice) || 0;
+              const buyPrice = Number(r.price) || 0;
+              return sum + (salePrice - buyPrice);
+            }, 0).toLocaleString()}
           </div>
         </div>
       </div>

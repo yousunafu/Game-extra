@@ -646,7 +646,10 @@
   cursor: pointer;
   transition: all 0.3s;
   box-shadow: 0 3px 10px rgba(52, 152, 219, 0.3);
-  margin-top: 15px;
+  margin: 15px auto 0 auto;
+  display: block;
+  width: 100%;
+  max-width: 100%;
 }
 
 .add-button:hover {

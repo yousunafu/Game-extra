@@ -133,6 +133,7 @@ export const syncZaicoToProject = async () => {
         buybackPrice: zaicoPurchasePrice, // Zaicoの仕入単価を買取単価に反映
         acquisitionPrice: zaicoPurchasePrice, // 仕入価格も同じ値に設定
         registeredDate: new Date().toISOString(), // 登録日
+        zaicoOriginalDate: zaicoItem.created_at || zaicoItem.updated_at, // Zaicoでの元の登録日
         colorLabel: '', // 色ラベル
         // Zaico同期商品の管理番号を設定
         managementNumbers: [`ZAICO-${zaicoItem.id}`],

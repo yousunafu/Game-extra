@@ -2,8 +2,8 @@
   max-width: 1400px;
   margin: 0 auto;
   background-color: white;
-  padding: 40px;
-  border-radius: 10px;
+  padding: 25px;
+  border-radius: 8px;
   box-shadow: 0 0 20px rgba(0,0,0,0.1);
 }
 
@@ -51,8 +51,8 @@
 
 /* ページネーション関連スタイル */
 .pagination-controls {
-  margin: 20px 0;
-  padding: 15px;
+  margin: 15px 0;
+  padding: 12px;
   background-color: #f8f9fa;
   border-radius: 8px;
   border: 1px solid #e9ecef;
@@ -77,19 +77,20 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 10px;
-  margin: 30px 0;
-  padding: 20px;
+  gap: 8px;
+  margin: 20px 0;
+  padding: 15px;
 }
 
 .pagination-btn {
-  padding: 8px 16px;
+  padding: 6px 12px;
   border: 1px solid #007bff;
   background-color: white;
   color: #007bff;
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s;
+  font-size: 13px;
 }
 
 .pagination-btn:hover:not(:disabled) {
@@ -108,13 +109,14 @@
 }
 
 .pagination-number {
-  padding: 8px 12px;
+  padding: 6px 10px;
   border: 1px solid #dee2e6;
   background-color: white;
   color: #495057;
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s;
+  font-size: 13px;
 }
 
 .pagination-number:hover {
@@ -459,14 +461,14 @@
 
 .summary-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 20px;
-  margin-bottom: 40px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 25px;
 }
 
 .summary-card {
   background-color: #f8f9fa;
-  padding: 25px;
+  padding: 18px;
   border-radius: 8px;
   text-align: center;
   transition: transform 0.2s, box-shadow 0.2s;
@@ -478,36 +480,36 @@
 }
 
 .card-icon {
-  font-size: 48px;
-  margin-bottom: 15px;
+  font-size: 36px;
+  margin-bottom: 10px;
 }
 
 .card-value {
-  font-size: 36px;
+  font-size: 28px;
   font-weight: bold;
   color: #2c3e50;
-  margin-bottom: 5px;
+  margin-bottom: 4px;
 }
 
 .card-label {
   color: #7f8c8d;
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .action-buttons {
   display: flex;
-  gap: 15px;
+  gap: 12px;
   justify-content: flex-end;
-  margin-bottom: 30px;
+  margin-bottom: 20px;
 }
 
 .action-buttons button {
   background-color: #3498db;
   color: white;
-  padding: 12px 25px;
+  padding: 10px 20px;
   border: none;
   border-radius: 5px;
-  font-size: 16px;
+  font-size: 14px;
   cursor: pointer;
   transition: background-color 0.3s;
 }
@@ -526,24 +528,25 @@
 
 .filter-section {
   background-color: #f8f9fa;
-  padding: 20px;
+  padding: 15px;
   border-radius: 5px;
-  margin-bottom: 30px;
+  margin-bottom: 20px;
 }
 
 .filter-section h3 {
-  margin-bottom: 15px;
+  margin-bottom: 12px;
   color: #34495e;
+  font-size: 16px;
 }
 
 .filter-controls {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 15px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
 }
 
 .form-group {
-  margin-bottom: 15px;
+  margin-bottom: 12px;
 }
 
 .form-group label {
@@ -560,17 +563,19 @@
   border: 1px solid #ddd;
   border-radius: 5px;
   font-size: 14px;
+  height: 40px; /* 統一された高さ */
+  box-sizing: border-box;
 }
 
 .inventory-table {
   width: 100%;
   border-collapse: collapse;
-  margin-bottom: 30px;
+  margin-bottom: 20px;
 }
 
 .inventory-table th,
 .inventory-table td {
-  padding: 12px;
+  padding: 10px;
   text-align: left;
   border: 1px solid #ddd;
 }
@@ -1522,4 +1527,137 @@
 .history-hint {
   font-size: 13px;
   color: #bdc3c7;
+}
+
+/* Zaico元の登録日表示スタイル */
+.zaico-original-date {
+  font-size: 12px;
+  color: #6c757d;
+  margin-top: 4px;
+  font-style: italic;
+}
+
+.zaico-original-date-small {
+  font-size: 11px;
+  color: #6c757d;
+  margin-top: 2px;
+  font-style: italic;
+}
+
+.date-display {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 在庫ありのみ表示チェックボックス */
+.stock-filter-group {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.stock-filter-group::before {
+  content: '';
+  height: 25px; /* ラベルと同じ高さを確保 */
+  margin-bottom: 5px;
+}
+
+.stock-filter-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border: 2px solid #dee2e6;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  height: 40px; /* 他のinput/selectと同じ高さ */
+  box-sizing: border-box;
+  flex: 1;
+}
+
+.stock-filter-checkbox:hover {
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+  border-color: #2196f3;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(33, 150, 243, 0.15);
+}
+
+.stock-filter-checkbox input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  cursor: pointer;
+  appearance: none;
+  border: 2px solid #6c757d;
+  border-radius: 4px;
+  background-color: white;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.stock-filter-checkbox input[type="checkbox"]:checked {
+  background-color: #28a745;
+  border-color: #28a745;
+  transform: scale(1.1);
+}
+
+.stock-filter-checkbox input[type="checkbox"]:checked::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.stock-filter-checkbox label {
+  cursor: pointer;
+  font-weight: 600;
+  color: #495057;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.stock-filter-checkbox label::before {
+  content: '📦';
+  font-size: 16px;
+  transition: transform 0.3s ease;
+}
+
+.stock-filter-checkbox:hover label::before {
+  transform: scale(1.2);
+}
+
+.stock-filter-checkbox input[type="checkbox"]:checked + label {
+  color: #28a745;
+}
+
+.stock-filter-checkbox input[type="checkbox"]:checked + label::before {
+  content: '✅';
+  transform: scale(1.2);
+}
+
+/* アクティブ状態のアニメーション */
+.stock-filter-checkbox::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  transition: left 0.5s ease;
+}
+
+.stock-filter-checkbox:active::before {
+  left: 100%;
 }

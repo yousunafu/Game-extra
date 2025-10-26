@@ -512,42 +512,60 @@ const Rating = () => {
     });
     localStorage.setItem('inventory', JSON.stringify(inventoryData));
     
-    // 各商品を在庫に追加（同じ商品は数量をまとめる）
+    // 商品をグループ化（同じ商品は1つのZaico在庫として登録）
+    const productGroups = {};
     for (const item of currentApp.items) {
+      const productKey = `${item.productType}_${item.console}_${item.color || ''}_${item.accessories || ''}_${item.assessedRank}_${item.buybackPrice}_${item.softwareName || ''}`;
+      
+      if (!productGroups[productKey]) {
+        productGroups[productKey] = {
+          items: [],
+          totalQuantity: 0,
+          allManagementNumbers: []
+        };
+      }
+      
+      productGroups[productKey].items.push(item);
+      productGroups[productKey].totalQuantity += item.quantity;
+      productGroups[productKey].allManagementNumbers.push(...(generatedManagementNumbers[item.id] || []));
+    }
+    
+    // グループ化された商品を処理
+    for (const [productKey, group] of Object.entries(productGroups)) {
+      const firstItem = group.items[0]; // 代表アイテム
       // 既存在庫に同じ商品（同じ機種、カラー、付属品、ランク、単価、仕入れ元）があるか確認
       const existingIndex = inventoryData.findIndex(inv => 
-        inv.productType === item.productType &&
-        inv.console === item.console &&
-        inv.color === (item.color || '') &&
-        inv.accessories === (item.accessories || '') &&
-        inv.assessedRank === item.assessedRank &&
-        inv.buybackPrice === item.buybackPrice &&
+        inv.productType === firstItem.productType &&
+        inv.console === firstItem.console &&
+        inv.color === (firstItem.color || '') &&
+        inv.accessories === (firstItem.accessories || '') &&
+        inv.assessedRank === firstItem.assessedRank &&
+        inv.buybackPrice === firstItem.buybackPrice &&
         inv.sourceType === 'customer' &&
         inv.customer?.name === currentApp.customer.name &&
-        (item.productType === 'software' ? inv.softwareName === item.softwareName : true)
+        (firstItem.productType === 'software' ? inv.softwareName === firstItem.softwareName : true)
       );
 
       if (existingIndex !== -1) {
         // 既存在庫があれば数量を加算
         const beforeQuantity = inventoryData[existingIndex].quantity;
-        inventoryData[existingIndex].quantity += item.quantity;
+        inventoryData[existingIndex].quantity += group.totalQuantity;
         
         // titleフィールドを追加（既存データにない場合）
         if (!inventoryData[existingIndex].title || inventoryData[existingIndex].title === 'undefined') {
-          inventoryData[existingIndex].title = item.consoleLabel || item.softwareName || 'ゲーム商品';
+          inventoryData[existingIndex].title = firstItem.consoleLabel || firstItem.softwareName || 'ゲーム商品';
         }
         
         // 管理番号も追加
         const existingNumbers = inventoryData[existingIndex].managementNumbers || [];
-        const newNumbers = generatedManagementNumbers[item.id] || [];
-        inventoryData[existingIndex].managementNumbers = [...existingNumbers, ...newNumbers];
+        inventoryData[existingIndex].managementNumbers = [...existingNumbers, ...group.allManagementNumbers];
         
         // 在庫変更履歴を記録
         const inventoryHistory = JSON.parse(localStorage.getItem('inventoryHistory') || '[]');
         inventoryHistory.push({
           itemId: inventoryData[existingIndex].id,
           type: 'add',
-          change: item.quantity,
+          change: group.totalQuantity,
           beforeQuantity: beforeQuantity,
           afterQuantity: inventoryData[existingIndex].quantity,
           date: new Date().toISOString(),
@@ -566,24 +584,24 @@ const Rating = () => {
           id: `INV-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           sourceType: 'customer',
           applicationNumber: currentApp.applicationNumber,
-          productType: item.productType,
-          manufacturer: item.manufacturer,
-          manufacturerLabel: item.manufacturerLabel,
-          console: item.console,
-          consoleLabel: item.consoleLabel,
-          color: item.color || '',
-          colorLabel: item.colorLabel || '',
-          softwareName: item.softwareName || '',
-          condition: item.condition || '',
-          conditionLabel: item.conditionLabel || '',
-          accessories: item.accessories || '',
-          accessoriesLabel: item.accessoriesLabel || '',
-          assessedRank: item.assessedRank,
-          quantity: item.quantity,
-          buybackPrice: item.buybackPrice,
-          acquisitionPrice: item.buybackPrice, // 統一
-          title: item.consoleLabel || item.softwareName || 'ゲーム商品', // titleフィールドを追加
-          managementNumbers: generatedManagementNumbers[item.id] || [], // 管理番号を追加
+          productType: firstItem.productType,
+          manufacturer: firstItem.manufacturer,
+          manufacturerLabel: firstItem.manufacturerLabel,
+          console: firstItem.console,
+          consoleLabel: firstItem.consoleLabel,
+          color: firstItem.color || '',
+          colorLabel: firstItem.colorLabel || '',
+          softwareName: firstItem.softwareName || '',
+          condition: firstItem.condition || '',
+          conditionLabel: firstItem.conditionLabel || '',
+          accessories: firstItem.accessories || '',
+          accessoriesLabel: firstItem.accessoriesLabel || '',
+          assessedRank: firstItem.assessedRank,
+          quantity: group.totalQuantity,
+          buybackPrice: firstItem.buybackPrice,
+          acquisitionPrice: firstItem.buybackPrice, // 統一
+          title: firstItem.consoleLabel || firstItem.softwareName || 'ゲーム商品', // titleフィールドを追加
+          managementNumbers: group.allManagementNumbers, // 管理番号を追加
           registeredDate: new Date().toISOString(),
           customer: {
             name: currentApp.customer.name,
@@ -647,9 +665,9 @@ const Rating = () => {
         inventoryHistory.push({
           itemId: inventoryItem.id,
           type: 'add',
-          change: item.quantity,
+          change: group.totalQuantity,
           beforeQuantity: 0,
-          afterQuantity: item.quantity,
+          afterQuantity: group.totalQuantity,
           date: new Date().toISOString(),
           performedBy: currentApp.assessorName || 'スタッフ',
           reason: `買取処理（${currentApp.applicationNumber}）`,

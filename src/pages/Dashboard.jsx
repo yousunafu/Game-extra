@@ -84,6 +84,7 @@ const Dashboard = () => {
       // 期間フィルタリング
       let filteredSales = salesLedger;
       let filteredApplications = applications;
+      let filteredInventory = inventory;
       
       if (startDate && endDate) {
         filteredSales = salesLedger.filter(sale => {
@@ -94,6 +95,15 @@ const Dashboard = () => {
         filteredApplications = applications.filter(app => {
           const appDate = new Date(app.date);
           return appDate >= new Date(startDate) && appDate <= new Date(endDate);
+        });
+        
+        // 在庫データから買取記録を取得
+        filteredInventory = inventory.filter(inv => {
+          if (inv.sourceType === 'customer' && inv.registeredDate) {
+            const invDate = new Date(inv.registeredDate);
+            return invDate >= new Date(startDate) && invDate <= new Date(endDate);
+          }
+          return false;
         });
       } else {
         // 期間が設定されていない場合は当月のデータを使用
@@ -109,6 +119,15 @@ const Dashboard = () => {
         filteredApplications = applications.filter(app => {
           const appDate = new Date(app.date);
           return appDate >= firstDay && appDate <= lastDay;
+        });
+        
+        // 在庫データから買取記録を取得
+        filteredInventory = inventory.filter(inv => {
+          if (inv.sourceType === 'customer' && inv.registeredDate) {
+            const invDate = new Date(inv.registeredDate);
+            return invDate >= firstDay && invDate <= lastDay;
+          }
+          return false;
         });
       }
       
@@ -127,16 +146,28 @@ const Dashboard = () => {
         return sum + (app.totalEstimate || 0);
       }, 0);
       
-      const grossProfit = totalSales - totalPurchases;
-      const transactions = filteredSales.length + filteredApplications.length;
+      // 在庫データから買取金額を追加
+      const inventoryPurchases = filteredInventory.reduce((sum, inv) => {
+        const buybackPrice = inv.acquisitionPrice || inv.buybackPrice || 0;
+        const quantity = inv.quantity || 1;
+        return sum + (buybackPrice * quantity);
+      }, 0);
+      
+      const totalPurchasesWithInventory = totalPurchases + inventoryPurchases;
+      
+      const grossProfit = totalSales - totalPurchasesWithInventory;
+      const transactions = filteredSales.length + filteredApplications.length + filteredInventory.length;
       
       console.log('📊 KPI計算結果:', {
         totalSales,
         totalPurchases,
+        inventoryPurchases,
+        totalPurchasesWithInventory,
         grossProfit,
         transactions,
         filteredSales: filteredSales.length,
-        filteredApplications: filteredApplications.length
+        filteredApplications: filteredApplications.length,
+        filteredInventory: filteredInventory.length
       });
       
       // 前年同期比の計算（簡易版）
@@ -152,7 +183,7 @@ const Dashboard = () => {
       const salesChange = lastYearSales > 0 ? ((totalSales - lastYearSales) / lastYearSales * 100) : 0;
       
       // 月別売上データの生成
-      const monthlyData = generateMonthlyData(filteredSales, filteredApplications);
+      const monthlyData = generateMonthlyData(filteredSales, filteredApplications, filteredInventory);
       
       // 商品別売上データの生成
       const productData = generateProductData(filteredSales);
@@ -175,7 +206,7 @@ const Dashboard = () => {
       setDashboardData({
         kpiData: {
           totalSales,
-          totalPurchases,
+          totalPurchases: totalPurchasesWithInventory,
           grossProfit,
           transactions,
           salesChange: Math.round(salesChange * 10) / 10,
@@ -197,7 +228,7 @@ const Dashboard = () => {
   };
   
   // 月別データ生成
-  const generateMonthlyData = (sales, applications) => {
+  const generateMonthlyData = (sales, applications, inventory) => {
     const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
     const salesData = new Array(12).fill(0);
     const purchaseData = new Array(12).fill(0);
@@ -209,7 +240,24 @@ const Dashboard = () => {
     
     applications.forEach(app => {
       const month = new Date(app.date).getMonth();
-      purchaseData[month] += app.totalEstimate || 0;
+      if (app.items && app.items.length > 0) {
+        const appTotal = app.items.reduce((sum, item) => {
+          return sum + ((item.buybackPrice || 0) * (item.quantity || 1));
+        }, 0);
+        purchaseData[month] += appTotal;
+      } else {
+        purchaseData[month] += app.totalEstimate || 0;
+      }
+    });
+    
+    // 在庫データから買取金額を追加
+    inventory.forEach(inv => {
+      if (inv.sourceType === 'customer' && inv.registeredDate) {
+        const month = new Date(inv.registeredDate).getMonth();
+        const buybackPrice = inv.acquisitionPrice || inv.buybackPrice || 0;
+        const quantity = inv.quantity || 1;
+        purchaseData[month] += buybackPrice * quantity;
+      }
     });
     
     return {
@@ -483,6 +531,38 @@ const Dashboard = () => {
     loadDashboardData();
   };
 
+  // 期間選択の処理
+  const handlePeriodChange = (selectedPeriod) => {
+    setPeriod(selectedPeriod);
+    
+    const now = new Date();
+    let start, end;
+    
+    switch (selectedPeriod) {
+      case 'month':
+        start = new Date(now.getFullYear(), now.getMonth(), 1);
+        end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        break;
+      case 'quarter':
+        const quarter = Math.floor(now.getMonth() / 3);
+        start = new Date(now.getFullYear(), quarter * 3, 1);
+        end = new Date(now.getFullYear(), quarter * 3 + 3, 0);
+        break;
+      case 'year':
+        start = new Date(now.getFullYear(), 0, 1);
+        end = new Date(now.getFullYear(), 11, 31);
+        break;
+      case 'custom':
+        // カスタム期間の場合は現在の日付を維持
+        return;
+      default:
+        return;
+    }
+    
+    setStartDate(start.toISOString().split('T')[0]);
+    setEndDate(end.toISOString().split('T')[0]);
+  };
+
   const handleExportReport = (format) => {
     const formatName = format === 'pdf' ? 'PDF' : 'Excel';
     alert(`${formatName}レポートを生成しています...`);
@@ -516,25 +596,25 @@ const Dashboard = () => {
             <div className="period-buttons">
               <button 
                 className={`period-btn ${period === 'month' ? 'active' : ''}`}
-                onClick={() => setPeriod('month')}
+                onClick={() => handlePeriodChange('month')}
               >
                 📈 月別
               </button>
               <button 
                 className={`period-btn ${period === 'quarter' ? 'active' : ''}`}
-                onClick={() => setPeriod('quarter')}
+                onClick={() => handlePeriodChange('quarter')}
               >
                 📊 四半期
               </button>
               <button 
                 className={`period-btn ${period === 'year' ? 'active' : ''}`}
-                onClick={() => setPeriod('year')}
+                onClick={() => handlePeriodChange('year')}
               >
                 📅 年別
               </button>
               <button 
                 className={`period-btn ${period === 'custom' ? 'active' : ''}`}
-                onClick={() => setPeriod('custom')}
+                onClick={() => handlePeriodChange('custom')}
               >
                 📋 期間指定
               </button>

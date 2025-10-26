@@ -31,7 +31,7 @@ import ApiKeyChecker from './components/ApiKeyChecker';
 import { insertMockAnalyticsData } from './utils/insertMockAnalyticsData';
 
 function AppContent() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
 
   // 初回起動時にモックデータを自動投入
   useEffect(() => {
@@ -45,6 +45,37 @@ function AppContent() {
       console.log('✅ モックデータの投入が完了しました');
     }
   }, []);
+
+  // 初期ロード時の役職判定とリダイレクト
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      const currentPath = window.location.pathname;
+      
+      // ログインページにいる場合、役職に応じて適切なページにリダイレクト
+      if (currentPath === '/login' || currentPath === '/intl/portal/auth' || currentPath === '/sys/staff/auth') {
+        // 既にログイン済みの場合は適切なページにリダイレクト
+        switch (user.role) {
+          case 'customer':
+            if (currentPath !== '/login') {
+              window.location.href = '/';
+            }
+            break;
+          case 'overseas_customer':
+            if (currentPath !== '/intl/portal/auth') {
+              window.location.href = '/';
+            }
+            break;
+          case 'staff':
+          case 'manager':
+          case 'admin':
+            if (currentPath !== '/sys/staff/auth') {
+              window.location.href = '/';
+            }
+            break;
+        }
+      }
+    }
+  }, [isAuthenticated, user]);
 
   return (
     <ApiKeyChecker>

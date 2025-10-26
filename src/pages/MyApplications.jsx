@@ -415,16 +415,16 @@ const MyApplications = () => {
                   </p>
                   <div className="approval-buttons">
                     <button 
+                      onClick={() => handleReject(app)}
+                      className="reject-btn"
+                    >
+                      ❌ 拒否する
+                    </button>
+                    <button 
                       onClick={() => handleApprove(app)}
                       className="approve-btn"
                     >
                       ✅ 承認する
-                    </button>
-                    <button 
-                      onClick={() => handleReject(app)}
-                      className="reject-btn"
-                    >
-                      ❌ 拒否する（返送）
                     </button>
                     </div>
                   </div>

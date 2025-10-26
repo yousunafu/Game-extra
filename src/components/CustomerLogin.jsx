@@ -18,17 +18,10 @@ const CustomerLogin = () => {
     setLoading(true);
 
     try {
-      const result = login(email, password);
+      // 顧客のみログイン許可（役職チェックをログイン前に実行）
+      const result = login(email, password, ['customer']);
       
       if (result.success) {
-        // 国内買取依頼者のみログイン許可
-        const user = JSON.parse(localStorage.getItem('currentUser'));
-        if (user.role !== 'customer') {
-          setError('このログイン画面は国内の買取依頼者専用です');
-          localStorage.removeItem('currentUser');
-          setLoading(false);
-          return;
-        }
         navigate('/');
       } else {
         setError(result.error);

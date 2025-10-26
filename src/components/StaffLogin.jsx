@@ -18,17 +18,10 @@ const StaffLogin = () => {
     setLoading(true);
 
     try {
-      const result = login(email, password);
+      // スタッフ系のみログイン許可（役職チェックをログイン前に実行）
+      const result = login(email, password, ['staff', 'manager', 'admin']);
       
       if (result.success) {
-        // スタッフ系のみログイン許可
-        const user = JSON.parse(localStorage.getItem('currentUser'));
-        if (!['staff', 'manager', 'admin'].includes(user.role)) {
-          setError('このログイン画面はスタッフ専用です');
-          localStorage.removeItem('currentUser');
-          setLoading(false);
-          return;
-        }
         navigate('/');
       } else {
         setError(result.error);

@@ -601,6 +601,38 @@ const Sales = () => {
           salesRecord.summary.totalSalesAmount += totalSalesAmount;
           salesRecord.summary.totalProfit += totalProfit;
 
+          // salesHistoryに販売記録を追加（買取記録を生成するため）
+          const salesHistory = JSON.parse(localStorage.getItem('salesHistory') || '[]');
+          salesHistory.push({
+            id: `SALE-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            inventoryItemId: inv.id,
+            productType: inv.productType,
+            manufacturer: inv.manufacturer,
+            manufacturerLabel: inv.manufacturerLabel,
+            console: inv.console,
+            consoleLabel: inv.consoleLabel,
+            color: inv.color,
+            colorLabel: inv.colorLabel,
+            softwareName: inv.softwareName,
+            assessedRank: inv.assessedRank,
+            quantity: sel.quantity,
+            acquisitionPrice: acquisitionPrice,
+            soldPrice: salesPricePerUnit,
+            profit: salesPricePerUnit - acquisitionPrice,
+            salesChannel: 'overseas',
+            soldTo: currentReq.customer.name,
+            soldAt: new Date().toISOString(),
+            managementNumbers: (inv.managementNumbers || []).slice(0, sel.quantity),
+            // 買取記録を生成するための情報
+            buybackInfo: {
+              applicationNumber: inv.applicationNumber,
+              buybackPrice: acquisitionPrice,
+              buybackDate: inv.registeredDate,
+              customer: inv.customer || null
+            }
+          });
+          localStorage.setItem('salesHistory', JSON.stringify(salesHistory));
+          
           // 在庫を減算
           const beforeQuantity = inventoryData[invIndex].quantity;
           inventoryData[invIndex].quantity -= sel.quantity;
@@ -670,7 +702,39 @@ const Sales = () => {
       return;
     }
     
+    // 見積書のみを印刷するためのスタイルを一時的に適用
+    const printStyle = document.createElement('style');
+    printStyle.textContent = `
+      @media print {
+        .invoice-sheet { display: none !important; }
+        .estimate-sheet { display: block !important; }
+        .no-print { display: none !important; }
+      }
+    `;
+    document.head.appendChild(printStyle);
+    
+    // 見積書を表示
+    const estimateElement = document.querySelector('.estimate-sheet');
+    if (estimateElement) {
+      estimateElement.style.display = 'block';
+    }
+    
+    // インボイスを非表示
+    const invoiceElement = document.querySelector('.invoice-sheet');
+    if (invoiceElement) {
+      invoiceElement.style.display = 'none';
+    }
+    
     window.print();
+    
+    // 印刷後、スタイルを削除
+    document.head.removeChild(printStyle);
+    if (invoiceElement) {
+      invoiceElement.style.display = 'none';
+    }
+    if (estimateElement) {
+      estimateElement.style.display = 'none';
+    }
   };
 
   // インボイス印刷
@@ -1223,11 +1287,17 @@ const Sales = () => {
                           <div className="weight-input-section">
                             <label>重量 (kg):</label>
                             <input
-                              type="number"
-                              step="0.1"
-                              placeholder="重量を入力"
+                              type="text"
+                              inputMode="decimal"
+                              placeholder="重量を入力 (例: 0.5)"
                               value={item.weight || ''}
-                              onChange={(e) => handleItemUpdate(item.id, 'weight', parseFloat(e.target.value) || 0)}
+                              onChange={(e) => {
+                                const inputValue = e.target.value;
+                                // 数字と小数点のみ許可
+                                if (inputValue === '' || /^\d*\.?\d*$/.test(inputValue)) {
+                                  handleItemUpdate(item.id, 'weight', inputValue);
+                                }
+                              }}
                               className="weight-input"
                             />
                           </div>

@@ -33,8 +33,11 @@ const callZaicoApiWithJsonp = (endpoint, apiKey) => {
     
     // グローバルコールバック関数を設定
     window[callbackName] = (data) => {
+      clearTimeout(timeout);
       delete window[callbackName];
-      document.head.removeChild(script);
+      if (document.head.contains(script)) {
+        document.head.removeChild(script);
+      }
       resolve(data);
     };
     
@@ -53,7 +56,9 @@ const callZaicoApiWithJsonp = (endpoint, apiKey) => {
     script.onerror = () => {
       clearTimeout(timeout);
       delete window[callbackName];
-      document.head.removeChild(script);
+      if (document.head.contains(script)) {
+        document.head.removeChild(script);
+      }
       reject(new Error('JSONP script load error'));
     };
     
@@ -77,6 +82,7 @@ export const callZaicoApi = async (endpoint, method = 'GET', data = null) => {
     // 成功したプロキシを先頭に移動
     prioritizedProxies = [successfulUrl, ...CORS_PROXIES.filter(url => url !== successfulUrl)];
     console.log('🚀 成功したプロキシを優先使用:', successfulUrl);
+    console.log('📊 成功履歴:', successfulProxies.length, '件の成功記録');
   }
   
   // GETリクエストの場合はJSONPを最初に試す

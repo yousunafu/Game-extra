@@ -1109,25 +1109,48 @@
 
   .estimate-table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: collapse !important;
+    border-spacing: 0 !important;
     margin-bottom: 20px;
+    border: 3px solid #2c3e50 !important;
   }
 
   .estimate-table th,
   .estimate-table td {
-    border: 1px solid #2c3e50;
+    border: none !important;
     padding: 10px;
     text-align: left;
     font-size: 13px;
   }
 
   .estimate-table thead {
-    background-color: #ecf0f1;
+    background-color: #ecf0f1 !important;
+  }
+
+  .estimate-table thead th {
+    border: none !important;
+  }
+
+  .estimate-table tbody td {
+    border: none !important;
   }
 
   .estimate-table th {
     font-weight: 700;
     color: #2c3e50;
+    border: none !important;
+  }
+
+  /* Firefox印刷プレビュー対応 */
+  .estimate-table tr:first-child th,
+  .estimate-table tr:first-child td {
+    border: none !important;
+  }
+
+  /* すべてのセルの境界線を確実に表示（太めの線） */
+  .estimate-table th,
+  .estimate-table td {
+    border: 2px solid #2c3e50 !important;
   }
 
   .estimate-table td.center {
@@ -1234,25 +1257,52 @@
 
   .invoice-table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: collapse !important;
+    border-spacing: 0 !important;
     margin-bottom: 20px;
+    border: 3px solid #2c3e50 !important;
   }
 
   .invoice-table th,
   .invoice-table td {
-    border: 1px solid #2c3e50;
+    border: none !important;
     padding: 10px;
     text-align: left;
     font-size: 13px;
   }
 
   .invoice-table thead {
-    background-color: #ecf0f1;
+    background-color: #ecf0f1 !important;
+  }
+
+  .invoice-table thead th {
+    border: none !important;
+  }
+
+  .invoice-table tbody td {
+    border: none !important;
   }
 
   .invoice-table th {
     font-weight: 700;
     color: #2c3e50;
+    border: none !important;
+  }
+
+  /* Firefox印刷プレビュー対応 */
+  .invoice-table tr:first-child th,
+  .invoice-table tr:first-child td {
+    border: none !important;
+  }
+
+  .invoice-table tbody tr:last-child td {
+    border: none !important;
+  }
+
+  /* すべてのセルの境界線を確実に表示（太めの線） */
+  .invoice-table th,
+  .invoice-table td {
+    border: 2px solid #2c3e50 !important;
   }
 
   .invoice-table td.center {

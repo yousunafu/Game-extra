@@ -18,17 +18,10 @@ const BuyerLogin = () => {
     setLoading(true);
 
     try {
-      const result = login(email, password);
+      // 海外バイヤーのみログイン許可（役職チェックをログイン前に実行）
+      const result = login(email, password, ['overseas_customer']);
       
       if (result.success) {
-        // 海外バイヤーのみログイン許可
-        const user = JSON.parse(localStorage.getItem('currentUser'));
-        if (user.role !== 'overseas_customer') {
-          setError('This login page is for overseas buyers only');
-          localStorage.removeItem('currentUser');
-          setLoading(false);
-          return;
-        }
         navigate('/');
       } else {
         setError(result.error);

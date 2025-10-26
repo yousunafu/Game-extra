@@ -413,6 +413,8 @@
   cursor: pointer;
   transition: all 0.3s;
   box-shadow: 0 3px 10px rgba(39, 174, 96, 0.3);
+  flex: 1;
+  max-width: 200px;
 }
 
 .approve-btn:hover {
@@ -432,6 +434,8 @@
   cursor: pointer;
   transition: all 0.3s;
   box-shadow: 0 3px 10px rgba(231, 76, 60, 0.3);
+  flex: 1;
+  max-width: 200px;
 }
 
 .reject-btn:hover {

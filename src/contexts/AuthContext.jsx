@@ -39,13 +39,21 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-  const login = (email, password) => {
+  const login = (email, password, allowedRoles = []) => {
     const users = getUsers();
     const foundUser = users.find(
       u => u.email === email && u.password === password
     );
 
     if (foundUser) {
+      // 役職チェック（allowedRolesが指定されている場合）
+      if (allowedRoles.length > 0 && !allowedRoles.includes(foundUser.role)) {
+        return { 
+          success: false, 
+          error: 'このログイン画面は指定された役職専用です' 
+        };
+      }
+
       const userWithoutPassword = { ...foundUser };
       delete userWithoutPassword.password;
       

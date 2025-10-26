@@ -335,8 +335,7 @@ const Inventory = () => {
       return item;
     });
     
-    // 在庫が0になったアイテムを削除
-    updatedInventory = updatedInventory.filter(item => item.quantity > 0);
+    // 在庫が0になったアイテムも記録として残す（削除しない）
     
     localStorage.setItem('inventory', JSON.stringify(updatedInventory));
     localStorage.setItem('salesHistory', JSON.stringify(salesHistory));
@@ -642,6 +641,19 @@ const Inventory = () => {
       <div className="filter-section">
         <h3>🔍 フィルター</h3>
         <div className="filter-controls">
+          <div className="form-group stock-filter-group">
+            <div className="stock-filter-checkbox">
+              <input 
+                type="checkbox" 
+                id="stock-filter"
+                checked={showInStockOnly} 
+                onChange={(e) => setShowInStockOnly(e.target.checked)}
+              />
+              <label htmlFor="stock-filter">
+                在庫ありのみ表示
+              </label>
+            </div>
+          </div>
           <div className="form-group">
             <label>商品検索</label>
             <input
@@ -686,16 +698,6 @@ const Inventory = () => {
               <option value="reserved">📋 予約済み</option>
               <option value="shipped">✈️ 発送済み</option>
             </select>
-          </div>
-          <div className="form-group">
-            <label>
-              <input 
-                type="checkbox" 
-                checked={showInStockOnly} 
-                onChange={(e) => setShowInStockOnly(e.target.checked)}
-              />
-              在庫ありのみ表示
-            </label>
           </div>
         </div>
       </div>
@@ -802,7 +804,16 @@ const Inventory = () => {
                 <td className="quantity-cell">{item.quantity}</td>
                 <td className="price-cell">¥{item.buybackPrice.toLocaleString()}</td>
                 <td className="value-cell">¥{(item.buybackPrice * item.quantity).toLocaleString()}</td>
-                <td className="date-cell">{new Date(item.registeredDate).toLocaleDateString('ja-JP')}</td>
+                <td className="date-cell">
+                  <div className="date-display">
+                    {new Date(item.registeredDate).toLocaleDateString('ja-JP')}
+                    {item.zaicoOriginalDate && (
+                      <div className="zaico-original-date-small">
+                        Zaico: {new Date(item.zaicoOriginalDate).toLocaleDateString('ja-JP')}
+                      </div>
+                    )}
+                  </div>
+                </td>
               </tr>
               );
             })}
@@ -1369,6 +1380,11 @@ const Inventory = () => {
                     <span className="detail-label">登録日:</span>
                     <span className="detail-value">
                       {new Date(selectedItem.registeredDate).toLocaleString('ja-JP')}
+                      {selectedItem.zaicoOriginalDate && (
+                        <div className="zaico-original-date">
+                          Zaico登録: {new Date(selectedItem.zaicoOriginalDate).toLocaleDateString('ja-JP')}
+                        </div>
+                      )}
                     </span>
                   </div>
                 </div>
