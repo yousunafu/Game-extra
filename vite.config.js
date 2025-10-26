@@ -11,14 +11,18 @@ export default defineConfig({
     },
     proxy: {
       '/api/zaico': {
-        target: 'https://web.zaico.co.jp/api/v1',
+        target: 'https://api.zaico.co.jp/v1',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/zaico/, ''),
         configure: (proxy, options) => {
           proxy.on('proxyReq', (proxyReq, req, res) => {
-            // Zaico APIトークンを注入
-            proxyReq.setHeader('Authorization', 'Bearer HjqREprLiqeb83fsDahXGKSb3w3M9TCR');
+            // リクエストヘッダーからAPIキーを取得して設定
+            const apiKey = req.headers['x-api-key'];
+            if (apiKey) {
+              proxyReq.setHeader('Authorization', `Bearer ${apiKey}`);
+            }
             proxyReq.setHeader('Content-Type', 'application/json');
+            proxyReq.setHeader('Accept', 'application/json');
           });
         }
       }
